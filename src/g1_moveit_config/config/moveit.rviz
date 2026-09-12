@@ -1,0 +1,58 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: moveit_rviz_plugin/MotionPlanning
+    Name: MotionPlanning
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Ground grid
+      Enabled: true
+      Plane: XY
+      Cell Size: 0.5
+    - Class: moveit_rviz_plugin/MotionPlanning
+      Name: MotionPlanning
+      Enabled: true
+      Planning Group: left_arm
+      Planning Scene Topic: /monitored_planning_scene
+      Robot Description: robot_description
+      Scene Robot:
+        Robot Alpha: 0.5
+      Planned Path:
+        Loop Animation: false
+        State Display Time: 0.05 s
+        Trajectory Topic: /display_planned_path
+      Planning Request:
+        Planning Attempts: 5
+        Planning Time: 8
+        Velocity Scaling Factor: 0.2
+        Acceleration Scaling Factor: 0.2
+    - Class: rviz_default_plugins/TF
+      Name: TF tree
+      Enabled: false
+      Show Names: false
+  Enabled: true
+  Global Options:
+    Background Color: 32; 32; 32
+    Fixed Frame: world
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 3.0
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.9
+      Pitch: 0.35
+      Target Frame: pelvis
+      Yaw: 0.8
+Window Geometry:
+  Height: 900
+  Width: 1400

@@ -1,0 +1,7 @@
+# Backend must confirm physical capture, not merely close fingers or attach in RViz.
+# Idempotent for the same object/link. Backend owns a bounded physical operation.
+string object_id
+string hand_link
+---
+bool success
+string message

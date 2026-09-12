@@ -1,0 +1,6 @@
+repositories:
+  src/vendor/mujoco_ros2_control:
+    type: git
+    url: https://github.com/ros-controls/mujoco_ros2_control.git
+    version: e6a6160c471a48609fc3f1f7508d7f571e8fa18e
+

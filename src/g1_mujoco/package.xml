@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>g1_mujoco</name>
+  <version>0.1.0</version>
+  <description>MuJoCo model and scene integration for the Unitree G1.</description>
+  <maintainer email="maintainer@example.com">G1 Locomanipulation Maintainer</maintainer>
+  <license>BSD-3-Clause</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>g1_description</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>mujoco_ros2_control</exec_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

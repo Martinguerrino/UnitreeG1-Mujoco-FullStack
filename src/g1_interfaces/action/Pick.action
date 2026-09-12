@@ -1,0 +1,14 @@
+# Object must already exist in the MoveIt scene and physical simulator.
+string object_id
+string arm
+# Desired hand pose, including the application-specific object-to-hand offset.
+geometry_msgs/PoseStamped grasp_pose
+float64 approach_distance
+float64 lift_distance
+---
+bool success
+# May remain true on cancellation/failure after grasp; never release implicitly.
+bool object_attached
+string message
+---
+string stage
