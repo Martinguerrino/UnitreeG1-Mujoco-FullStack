@@ -1,0 +1,9 @@
+kind: task
+robot: configs/robot.yaml
+locomotion: configs/locomotion.yaml
+manipulation: configs/manipulation.yaml
+camera: configs/camera.yaml
+task: configs/task.yaml
+seed: 0
+duration: 60.0
+results_dir: results

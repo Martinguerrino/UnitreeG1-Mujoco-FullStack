@@ -5,8 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
 bash -n scripts/*.sh
-ruff format --check scripts tests experiments src/g1_control/scripts src/g1_bringup src/g1_manipulation/launch
-ruff check scripts tests experiments src/g1_control/scripts src/g1_bringup src/g1_manipulation/launch
+ruff format --check scripts tests experiments g1_backend src/g1_control/scripts src/g1_bringup src/g1_manipulation/launch
+ruff check scripts tests experiments g1_backend src/g1_control/scripts src/g1_bringup src/g1_manipulation/launch
 # ROS installs system-wide pytest plugins. These unit tests do not use them;
 # autoloading would couple the Conda test environment to optional ROS modules.
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q tests

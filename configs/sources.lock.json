@@ -1,0 +1,44 @@
+{
+  "files": {
+    "artifacts/locomotion_holosoma/fastsac_g1_29dof.onnx": {
+      "repo": "nepyope/holosoma_locomotion",
+      "revision": "0b5c691",
+      "path": "fastsac_g1_29dof.onnx",
+      "sha256": "8346fd90778439395922a8c7256f24125ae84b8dea949128bac9e23c02bc7717",
+      "blob_url": "https://huggingface.co/nepyope/holosoma_locomotion/blob/main/fastsac_g1_29dof.onnx"
+    },
+    "artifacts/locomotion/policy.onnx": {
+      "repo": "unitreerobotics/unitree_rl_lab",
+      "revision": "4960b84732b0c2ec593dccbfe963fda1bcd7b1e3",
+      "path": "deploy/robots/g1_29dof/config/policy/velocity/v0/exported/policy.onnx",
+      "sha256": "610c27e463a8f666aa50a06346678c00b4df3859f10b54bcc1f817c28251406f",
+      "blob_url": "https://api.github.com/repos/unitreerobotics/unitree_rl_lab/git/blobs/c50bb5f6b11d7f464ff6799a78987a12ce68fb97"
+    },
+    "artifacts/locomotion/deploy.yaml": {
+      "repo": "unitreerobotics/unitree_rl_lab",
+      "revision": "4960b84732b0c2ec593dccbfe963fda1bcd7b1e3",
+      "path": "deploy/robots/g1_29dof/config/policy/velocity/v0/params/deploy.yaml",
+      "sha256": "64b04c0596a7010f39f8ac6e9ec46dc750141063cdcf2d42c83ecc444e57bc63",
+      "blob_url": "https://api.github.com/repos/unitreerobotics/unitree_rl_lab/git/blobs/54ebf64ef59121d7507a75c7dc4dce97313285cd"
+    },
+    "artifacts/unitree_mujoco/unitree_sdk2py_bridge.py": {
+      "repo": "unitreerobotics/unitree_mujoco",
+      "revision": "1eb6642e3f3fdfb7fb13a9794fd6a2dd93ea0e7d",
+      "path": "simulate_python/unitree_sdk2py_bridge.py",
+      "sha256": "3ddb54ddddc6a20255e9bb77760537774b2eb77ce50073bf1f4a69bfaa77b599",
+      "blob_url": "https://api.github.com/repos/unitreerobotics/unitree_mujoco/git/blobs/a9ca97ae12ea15f5eaf94eaa83f1f366dd2b5b4c"
+    },
+    "artifacts/dependencies/sdk2.tar.gz": {
+      "repo": "unitreerobotics/unitree_sdk2_python",
+      "revision": "65691c8a8bc53b98d3976dba4dbf9d5d20b2e7f5",
+      "path": null,
+      "sha256": "cb409457f8c914f11fcf8537e8c211c4978beac4eb852e1ba3727bb54923ed3b"
+    },
+    "artifacts/dependencies/cyclonedds.tar.gz": {
+      "repo": "eclipse-cyclonedds/cyclonedds",
+      "revision": "2cdd114cbd18340c606573b4cc8dc20cc161ec5a",
+      "path": null,
+      "sha256": "84e3fc6af1dda2f128cda62efc56f8ef87f02a9db1414a63f52e387935837734"
+    }
+  }
+}

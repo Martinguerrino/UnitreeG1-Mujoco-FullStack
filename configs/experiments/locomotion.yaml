@@ -1,0 +1,16 @@
+kind: locomotion
+robot: configs/robot.yaml
+locomotion: configs/locomotion.yaml
+manipulation: configs/manipulation.yaml
+camera: configs/camera.yaml
+task: configs/task.yaml
+seed: 0
+warmup: 2.0
+duration: 15.0
+stand_duration: 2.0
+stop_duration: 2.0
+target: [0.5, 0.0, 0.0]
+max_speed: 0.3
+position_tolerance: 0.12
+orientation_tolerance: 0.15
+results_dir: results

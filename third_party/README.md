@@ -9,3 +9,8 @@ licencia BSD de tres cláusulas incluida en `UNITREE_LICENSE`.
 
 Las modificaciones propias añaden las interfaces de `ros2_control`, el escenario
 de laboratorio, launch files, controladores y pruebas.
+
+Las mallas y el URDF Dex1 opcionales se descargan de `unitree_ros` a
+`artifacts/dex1`, bajo la misma licencia `UNITREE_LICENSE`. Las revisiones y
+hashes de esos assets y de los controladores consultados se fijan en
+`configs/dex1.sources.json`; la conversión MJCF y el servo son adaptaciones locales.

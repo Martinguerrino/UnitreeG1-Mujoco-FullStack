@@ -1,0 +1,56 @@
+{
+  "unitree_sim_isaaclab_data_convert.py": {
+    "repository": "unitree_sim_isaaclab",
+    "revision": "e30c25b1dffdf92ada1d6c8c1fe9a47bdde0fecc",
+    "path": "tools/data_convert.py",
+    "sha256": "e57dae1bca35f48a010a4a45cef315a70f91bb5939532cae29067ea9962948f6"
+  },
+  "xr_teleoperate_robot_hand_unitree.py": {
+    "repository": "xr_teleoperate",
+    "revision": "817fb00c63cde15e5f24a0f8fa08e1e33ed89d3b",
+    "path": "teleop/robot_control/robot_hand_unitree.py",
+    "sha256": "4ee8bd44e9512fb29f20113728e1cf3eebd077652b8540e62f8fd11943cfc034"
+  },
+  "unitree_lerobot_robot_hand_unitree.py": {
+    "repository": "unitree_lerobot",
+    "revision": "41c2805742de879ddab2d8d6beaeaf215f876395",
+    "path": "unitree_lerobot/eval_robot/robot_control/robot_hand_unitree.py",
+    "sha256": "c5c1cdeb7e4a527050ff4bfb6fd69fe369a9dfebff05adfaff4e19f898e59e42"
+  },
+  "Dex1_base_link.STL": {
+    "repository": "unitree_ros",
+    "revision": "7d6075f7f58588b189b940130e3edab3c839b2df",
+    "path": "robots/g1_description/meshes/Dex1_base_link.STL",
+    "sha256": "03f1cb02f94d6b280953f6c5a10da2eab6220ea5c301408d3c4decca66c8cdad"
+  },
+  "Dex1_finger_link_1.STL": {
+    "repository": "unitree_ros",
+    "revision": "7d6075f7f58588b189b940130e3edab3c839b2df",
+    "path": "robots/g1_description/meshes/Dex1_finger_link_1.STL",
+    "sha256": "7cd2ff199556e3955547a34c75ed9ea777fb7d704fc98e7318d0f67e4aaedf5a"
+  },
+  "Dex1_finger_link_2.STL": {
+    "repository": "unitree_ros",
+    "revision": "7d6075f7f58588b189b940130e3edab3c839b2df",
+    "path": "robots/g1_description/meshes/Dex1_finger_link_2.STL",
+    "sha256": "e8297ce8184c64d34d70cd9d6c7b583fba6a3adae2075523e97fb956ada65eb3"
+  },
+  "dex1_col_1.stl": {
+    "repository": "unitree_ros",
+    "revision": "7d6075f7f58588b189b940130e3edab3c839b2df",
+    "path": "robots/g1_description/meshes/dex1_col_1.stl",
+    "sha256": "5edf010f581635fcb4a79fe20cda65a96c95138112ab91d7e79629980f535c92"
+  },
+  "dex1_col_2.stl": {
+    "repository": "unitree_ros",
+    "revision": "7d6075f7f58588b189b940130e3edab3c839b2df",
+    "path": "robots/g1_description/meshes/dex1_col_2.stl",
+    "sha256": "0d791ffb8b438bc4a5fd937eab383db4daa62685a73982e852cc559623036ba9"
+  },
+  "g1_29dof_mode_15_with_dex1_1.urdf": {
+    "repository": "unitree_ros",
+    "revision": "7d6075f7f58588b189b940130e3edab3c839b2df",
+    "path": "robots/g1_description/g1_29dof_mode_15_with_dex1_1.urdf",
+    "sha256": "1a0a4f493d6686cd93952d8e67d6144d4c337929151c745e0440b8a28f08ed1a"
+  }
+}

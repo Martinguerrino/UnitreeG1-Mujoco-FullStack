@@ -1,0 +1,20 @@
+enabled: true
+record: true
+max_recorded_frames: 1200
+rgb: true
+depth: false
+width: 320
+height: 240
+# Long stability runs favor control-loop headroom over temporal resolution.
+fps: 5
+views:
+  - name: head_camera
+    body: torso_link
+    position: [0.05, 0.0, 0.4]
+    fovy: 60
+    quaternion: [0.5, 0.5, -0.5, -0.5]
+  - name: observer_camera
+    body: pelvis
+    position: [-3.0, 0.0, 1.5]
+    fovy: 70
+    quaternion: [0.5, 0.5, -0.5, -0.5]

@@ -1,5 +1,10 @@
 # Unitree G1 — MuJoCo + ROS 2
 
+Integración inicial de [Nav2 + SLAM Toolbox](docs/navigation.md):
+`bash scripts/navigation.sh` abre MuJoCo y RViz para seleccionar destinos.
+Requiere instalar los paquetes indicados en esa guía; validación extremo a
+extremo pendiente.
+
 Stack educativo y modular de locomanipulación para el Unitree G1 de 29 DOF. La
 versión actual llega hasta planificación de brazos con MoveIt 2:
 
@@ -9,11 +14,70 @@ pose objetivo → MoveIt 2 (IK + colisiones + OMPL)
               → MuJoCo/G1 → /joint_states y TF
 ```
 
+## Backend de políticas preentrenadas por SDK2/DDS
+
+Se agregó una ruta independiente de ROS para ejecutar la política oficial G1
+29 DoF de Unitree RL Lab mediante el bridge oficial `unitree_mujoco`.
+Incluye configuraciones, test de comunicación, GoTo, benchmark y API externa.
+ACT con Dex1 se prueba en un ejecutable aislado; su incorporación al Task Executor
+sigue pendiente de un agarre validado.
+
+```bash
+conda activate mujoco-unitree
+python scripts/setup_dds.py
+python scripts/run_experiment.py --config configs/experiments/locomotion.yaml
+```
+
+Para ejecutar la misma política en el escenario reproducible de instalaciones
+de `maxwellrobotics/g1-ros2` (revisión y SHA-256 fijados localmente):
+
+```bash
+python scripts/run_experiment.py \
+  --config configs/experiments/locomotion_maxwell_facility.yaml
+```
+
+Para guardar dos videos sincronizados —vista desde la cabeza y vista externa—
+en una subcarpeta identificada por prueba:
+
+```bash
+python scripts/run_video_test.py \
+  --name locomotion_maxwell \
+  --config configs/experiments/locomotion_maxwell_video.yaml
+```
+
+Agregar `--viewer` abre el visor interactivo de MuJoCo mientras se ejecuta y
+graba exactamente el mismo experimento:
+
+```bash
+python scripts/run_video_test.py \
+  --name table_to_table_live \
+  --config configs/experiments/table_to_table_stability_video.yaml \
+  --viewer
+```
+
+Para observar el mismo test sin grabar ni renderizar cámaras adicionales, usar
+`--viewer --no-record`.
+
+Cada corrida crea `videos/locomotion_maxwell/<fecha_id>/head_camera.mp4` y
+`observer_camera.mp4`. Se puede cambiar `--name` para separar otros tests.
+
+[Uso y API del backend](docs/backend.md) · [Contratos de políticas](docs/policy_interfaces.md)
+· [Resultados de validación](docs/validation.md)
+· [Avance del plan y tareas con varios destinos](docs/plan_progress.md).
+
+La ruta ROS/MoveIt descrita abajo conserva sus comandos originales.
+
 ## Estado
 
-Experimento opcional: [ACT Okura](exp/10_okura_act.md) ya carga pesos y produce
-acciones con imágenes de MuJoCo. **Dex1, agarre y traslado aún no validados**;
-no cambia el lanzamiento ROS existente.
+Experimento opcional: [Dex1 + ACT por DDS](docs/dex1_act.md) incorpora pinzas
+con geometría oficial y ejecuta el checkpoint Okura sobre el robot simulado.
+**Apertura/cierre validados; los ensayos ACT todavía no consiguen agarrar la caja.**
+No cambia el lanzamiento ROS existente.
+
+El nuevo modo [traslado con objeto Okura](docs/okra_transfer.md) incorpora
+agarre ACT, retención de pinza, recorrido a una segunda mesa y liberación con
+verificación física. **El ensayo actual logra contacto bilateral, pero no eleva
+el objeto; el traslado completo todavía no está validado.**
 
 - Fase 0: workspace modular, scripts, dependencias fijadas y tests.
 - Fase 1: G1 oficial de 29 DOF cargable en MuJoCo.

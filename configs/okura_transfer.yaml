@@ -1,0 +1,13 @@
+# Experimental reproduction from publicly visible demonstrations; dimensions estimated.
+object_kind: okra
+object_position: [0.43, -0.13, 0.760]
+# Public right-arm dataset, episode 0, frame 0. Left arm uses checkpoint mean.
+initial_right_state: [-0.2939730585, 0.0765911862, 0.1739749908, 0.7679970860, -0.3397168219, -0.8085756898, -0.4761572480, 0.0189600028]
+dataset_revision: b47cc2ec337360154a4b8e44ded18ba40da520e3
+dataset: sotata/okura-pick-06102026
+# Body goal for table B. The object is carried in front of the right shoulder.
+carry_target: [0.0, 1.2, 0.0]
+carry_waypoints: [[-0.3, 0.0, 0.0], [-0.3, 1.2, 0.0], [0.0, 1.2, 0.0]]
+carry_speed: 0.3
+pick_timeout: 25.0
+carry_timeout: 30.0

@@ -1,5 +1,9 @@
 # Okura ACT: qué funciona y qué todavía no
 
+Actualización del 13 de septiembre: [Dex1 + ACT por DDS](../docs/dex1_act.md)
+ya prueba pinzas físicas y acciones sobre el robot; el agarre sigue fallando.
+El texto siguiente conserva el ensayo inicial de inferencia sin manos Dex1.
+
 ## Resultado de esta etapa
 
 Se descargó y ejecutó **el checkpoint original**, no una política inventada ni

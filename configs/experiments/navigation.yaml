@@ -1,0 +1,33 @@
+kind: navigation
+robot: configs/robot_navigation.yaml
+locomotion: configs/locomotion.yaml
+manipulation: configs/manipulation.yaml
+camera: configs/camera.yaml
+task: configs/task.yaml
+navigation:
+  command_port: 19421
+  telemetry_port: 19420
+  turn_assist:
+    # The original policy turns much better while translating. A smooth
+    # backwards-first oscillation avoids forcing an unstable in-place turn.
+    enabled: true
+    speed: 0.50
+    period: 2.0
+    acceleration: 1.2
+    angular_gain: 36.0
+    minimum_assist_turn_rate: 1.0
+    tracking_angular_gain: 3.0
+    max_angular_speed: 1.0
+    angular_acceleration: 4.0
+    min_angular_speed: 0.01
+    release_angular_speed: 0.001
+    max_linear_speed: 0.03
+    # Stop the oscillation on forward path following; retain angular assistance.
+    max_forward_command: 0.05
+    angular_linear_ratio: 0.7
+    obstacle_clearance: 0.8
+seed: 0
+warmup: 2.0
+stand_duration: 2.0
+duration: 3600.0
+results_dir: results/navigation

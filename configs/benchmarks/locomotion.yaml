@@ -1,0 +1,20 @@
+experiment: configs/experiments/locomotion.yaml
+repetitions: 2
+seed: 100
+results_dir: results/benchmarks
+cases:
+  - name: slow_forward
+    initial_position: [0.0, 0.0, 0.793]
+    initial_yaw: 0.0
+    max_speed: 0.2
+    target: [0.4, 0.0, 0.0]
+  - name: offset_forward
+    initial_position: [0.2, -0.2, 0.793]
+    initial_yaw: 0.4
+    max_speed: 0.3
+    target: [0.8, -0.2, 0.4]
+  - name: faster_forward
+    initial_position: [-0.2, 0.2, 0.793]
+    initial_yaw: -0.4
+    max_speed: 0.4
+    target: [0.6, 0.2, -0.4]

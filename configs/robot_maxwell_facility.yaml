@@ -1,0 +1,12 @@
+model: src/g1_mujoco/mjcf/g1_29dof.xml
+scene: src/g1_mujoco/scenes/maxwellrobotics/g1_navigation_scene.xml
+meshes: src/g1_description/meshes
+bridge: artifacts/unitree_mujoco/unitree_sdk2py_bridge.py
+interface: lo
+domain_id: 42
+timestep: 0.002
+state_timeout: 0.25
+command_timeout: 0.25
+# Clear starting point in the central corridor of the 18 x 18 m facility.
+initial_position: [0.0, 0.0, 0.793]
+initial_yaw: 0.0

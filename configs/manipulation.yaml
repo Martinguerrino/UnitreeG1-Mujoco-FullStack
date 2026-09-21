@@ -1,0 +1,4 @@
+# Future trusted local factory: my_package.my_policy:create_policy
+provider: null
+checkpoint: null
+# Configure embodiment, hands, joint order, normalization and sensors with provider.

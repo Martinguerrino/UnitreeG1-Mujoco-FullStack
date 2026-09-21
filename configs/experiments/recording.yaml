@@ -1,0 +1,22 @@
+kind: communication
+robot: configs/robot.yaml
+locomotion: configs/locomotion.yaml
+manipulation: configs/manipulation.yaml
+task: configs/task.yaml
+camera:
+  enabled: true
+  record: true
+  max_recorded_frames: 300
+  rgb: true
+  depth: false
+  width: 320
+  height: 240
+  fps: 10
+  fovy: 60
+  body: torso_link
+  position: [0.05, 0.0, 0.4]
+  quaternion: [0.5, 0.5, -0.5, -0.5]
+seed: 0
+warmup: 2.0
+duration: 2.0
+results_dir: results

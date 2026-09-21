@@ -1,0 +1,9 @@
+steps:
+  - skill: goto
+    target: [0.5, 0.0, 0.0]
+  - skill: pick
+    object: box
+  - skill: goto
+    target: [1.0, 0.0, 0.0]
+  - skill: place
+    target: table_b

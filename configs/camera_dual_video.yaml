@@ -1,0 +1,21 @@
+enabled: true
+record: true
+max_recorded_frames: 10000
+rgb: true
+depth: false
+width: 640
+height: 480
+fps: 20
+views:
+  - name: head_camera
+    body: torso_link
+    position: [0.05, 0.0, 0.4]
+    fovy: 60
+    # Forward-facing robot view: camera looks along local +X, with +Z up.
+    quaternion: [0.5, 0.5, -0.5, -0.5]
+  - name: observer_camera
+    body: pelvis
+    position: [-3.0, 0.0, 1.5]
+    fovy: 70
+    # Third-person chase view, following behind the robot.
+    quaternion: [0.5, 0.5, -0.5, -0.5]

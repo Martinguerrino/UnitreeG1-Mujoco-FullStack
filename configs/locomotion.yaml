@@ -1,0 +1,8 @@
+provider: unitree_rl_lab
+checkpoint: artifacts/locomotion/policy.onnx
+deployment: artifacts/locomotion/deploy.yaml
+# Simulation-only override. The exported policy declares +/-0.2 rad/s, but its
+# response is too slow for Nav2 turns. Keep this explicit because it exercises
+# the network slightly outside its nominal command range.
+command_ranges:
+  ang_vel_z: [-1.0, 1.0]

@@ -1,0 +1,324 @@
+{
+  "unit_tests_passed": 52,
+  "autonomous_transfer_validated": false,
+  "current_run_video_frames": 251,
+  "current_run_numeric_trace_finite": true,
+  "trials": [
+    {
+      "directory": "results/okra_transfer_01",
+      "current_scene": false,
+      "sim_seconds": 25.00199999999702,
+      "act_actions_executed": 658,
+      "max_finger_contacts": 1,
+      "max_object_lift_m": 0.001352384877593149,
+      "body_watchdog_events": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "transfer": {
+        "phase": "failed",
+        "success": false,
+        "failure": "pick_timeout",
+        "events": [
+          {
+            "from": "pick",
+            "to": "failed",
+            "time": 25.00199999999702,
+            "reason": "pick_timeout"
+          }
+        ],
+        "fixture_released": false,
+        "navigation_started": false,
+        "phases_executed": [
+          "failed",
+          "pick"
+        ],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.15,
+            0.738
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      }
+    },
+    {
+      "directory": "results/okra_transfer_forward",
+      "current_scene": false,
+      "sim_seconds": 25.00199999999702,
+      "act_actions_executed": 667,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "body_watchdog_events": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "transfer": {
+        "phase": "failed",
+        "success": false,
+        "failure": "pick_timeout",
+        "events": [
+          {
+            "from": "pick",
+            "to": "failed",
+            "time": 25.00199999999702,
+            "reason": "pick_timeout"
+          }
+        ],
+        "fixture_released": false,
+        "navigation_started": false,
+        "waypoint_index": 0,
+        "phases_executed": [
+          "failed",
+          "pick"
+        ],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "carry_speed": 0.3,
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_timeout": 30.0,
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "dataset": "sotata/okura-pick-06102026",
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "object_kind": "okra",
+          "object_position": [
+            0.6,
+            -0.17,
+            0.738
+          ],
+          "pick_timeout": 25.0
+        }
+      }
+    },
+    {
+      "directory": "results/okra_transfer_rack",
+      "current_scene": false,
+      "sim_seconds": 25.00199999999702,
+      "act_actions_executed": 664,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "body_watchdog_events": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "transfer": {
+        "phase": "failed",
+        "success": false,
+        "failure": "pick_timeout",
+        "events": [
+          {
+            "from": "pick",
+            "to": "failed",
+            "time": 25.00199999999702,
+            "reason": "pick_timeout"
+          }
+        ],
+        "fixture_released": false,
+        "navigation_started": false,
+        "waypoint_index": 0,
+        "phases_executed": [
+          "failed",
+          "pick"
+        ],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.13,
+            0.76
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      }
+    },
+    {
+      "directory": "results/okra_transfer_supported",
+      "current_scene": true,
+      "sim_seconds": 25.00199999999702,
+      "act_actions_executed": 668,
+      "max_finger_contacts": 2,
+      "max_object_lift_m": 0.0,
+      "body_watchdog_events": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "transfer": {
+        "phase": "failed",
+        "success": false,
+        "failure": "pick_timeout",
+        "events": [
+          {
+            "from": "pick",
+            "to": "failed",
+            "time": 25.00199999999702,
+            "reason": "pick_timeout"
+          }
+        ],
+        "fixture_released": false,
+        "navigation_started": false,
+        "waypoint_index": 0,
+        "phases_executed": [
+          "failed",
+          "pick"
+        ],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.13,
+            0.76
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      }
+    }
+  ],
+  "checks": {
+    "ruff": "passed",
+    "pytest": "52 passed",
+    "ros_colcon": "60 tests, 0 errors, 7 failures, 2 skipped; copyright/cpplint/uncrustify in existing ROS sources; full scripts/check.sh exits 1"
+  }
+}

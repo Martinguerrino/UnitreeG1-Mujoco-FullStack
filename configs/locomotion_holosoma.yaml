@@ -1,0 +1,3 @@
+provider: holosoma_fastsac
+checkpoint: artifacts/locomotion_holosoma/fastsac_g1_29dof.onnx
+sha256: 8346fd90778439395922a8c7256f24125ae84b8dea949128bac9e23c02bc7717

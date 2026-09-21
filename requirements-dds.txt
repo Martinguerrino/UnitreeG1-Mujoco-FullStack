@@ -1,0 +1,5 @@
+# Optional runtime, installed into artifacts/dds_runtime by scripts/setup_dds.py.
+# Existing environment.yml supplies MuJoCo, NumPy, PyYAML; no training dependencies.
+cyclonedds==0.10.2
+onnxruntime==1.22.1
+pygame==2.6.1
