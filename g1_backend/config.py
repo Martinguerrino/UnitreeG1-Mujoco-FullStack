@@ -91,6 +91,21 @@ def load_config(source):
             vector(view['quaternion'], f'camera {name} quaternion', 4)
             if sum(component**2 for component in view['quaternion']) < 1e-12:
                 raise ValueError('Camera quaternion must be nonzero')
+    lidar = config.get('navigation', {}).get('lidar', {})
+    if lidar.get('enabled'):
+        for key in ('horizontal_samples',):
+            if type(lidar.get(key)) is not int or lidar[key] < 4:
+                raise ValueError(f'lidar {key} must be an integer >= 4')
+        for key in ('min_range', 'max_range', 'fps'):
+            finite(lidar[key], f'lidar {key}', 0)
+        if lidar['min_range'] >= lidar['max_range']:
+            raise ValueError('lidar min_range must be below max_range')
+        vector(lidar['position'], 'lidar position', 3)
+        vector(lidar['rpy'], 'lidar rpy', 3)
+        if not lidar.get('vertical_angles_deg'):
+            raise ValueError('lidar requires vertical_angles_deg')
+        for angle in lidar['vertical_angles_deg']:
+            finite(angle, 'lidar vertical angle')
     if config['kind'] == 'task':
         from .skills import GoTo, TaskExecutor
 

@@ -8,7 +8,7 @@ import mujoco
 import numpy as np
 
 from g1_backend.config import ROOT, load_config
-from g1_backend.navigation import NavigationTransport, laser_scan
+from g1_backend.navigation import NavigationTransport, laser_scan, lidar_scan
 from g1_backend.simulator import model_xml
 
 
@@ -38,6 +38,22 @@ def test_facility_scan_sees_workbench_top(tmp_path):
     data = mujoco.MjData(model)
     mujoco.mj_forward(model, data)
     assert np.isclose(laser_scan(model, data, count=4)[2], 0.95, atol=0.01)
+
+
+def test_mid360_cloud_and_horizontal_projection_follow_mount(tmp_path):
+    config = load_config(ROOT / 'configs/experiments/navigation.yaml')
+    model_text, scene_text = model_xml(config)
+    (tmp_path / 'g1_29dof.xml').write_text(model_text)
+    (tmp_path / 'scene.xml').write_text(scene_text)
+    model = mujoco.MjModel.from_xml_path(str(tmp_path / 'scene.xml'))
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    points, scan = lidar_scan(model, data, config['navigation']['lidar'])
+    assert points.ndim == 2 and points.shape[1] == 3
+    assert len(points) > 0
+    assert len(scan) == config['navigation']['lidar']['horizontal_samples']
+    assert any(distance is not None for distance in scan)
+    assert np.isfinite(points).all()
 
 
 def test_commands_are_bounded_reject_nan_and_expire():

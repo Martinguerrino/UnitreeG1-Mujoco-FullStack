@@ -1,8 +1,10 @@
 """Loopback transport and ideal, level 2-D LiDAR for the simulation-only ROS bridge."""
 
 import json
+import io
 import math
 import socket
+import struct
 import time
 
 import numpy as np
@@ -27,15 +29,59 @@ def laser_scan(model, data, count=360, maximum=20.0):
     return ranges
 
 
+def lidar_scan(model, data, config):
+    """Return a MID-360-like XYZ cloud and its horizontal Nav2 projection."""
+    import mujoco
+
+    body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, config['body'])
+    if body_id < 0:
+        raise ValueError(f"LiDAR parent body does not exist: {config['body']}")
+    roll, pitch, yaw = config['rpy']
+    cr, sr, cp, sp, cy, sy = (
+        math.cos(roll), math.sin(roll), math.cos(pitch), math.sin(pitch),
+        math.cos(yaw), math.sin(yaw),
+    )
+    mount_rotation = np.array([
+        [cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
+        [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
+        [-sp, cp * sr, cp * cr],
+    ])
+    body_rotation = data.xmat[body_id].reshape(3, 3)
+    rotation = body_rotation @ mount_rotation
+    origin = data.xpos[body_id] + body_rotation @ np.asarray(config['position'])
+    groups = np.array([0, 0, 1, 0, 0, 0], dtype=np.uint8)
+    hit = np.zeros(1, dtype=np.int32)
+    angles = np.linspace(-math.pi, math.pi, config['horizontal_samples'], endpoint=False)
+    elevations = np.radians(config['vertical_angles_deg'])
+    points = []
+    horizontal = [None] * len(angles)
+    horizontal_row = int(np.argmin(np.abs(elevations)))
+    for row, elevation in enumerate(elevations):
+        ce, se = math.cos(elevation), math.sin(elevation)
+        for column, azimuth in enumerate(angles):
+            local_direction = np.array([ce * math.cos(azimuth), ce * math.sin(azimuth), se])
+            distance = mujoco.mj_ray(
+                model, data, origin, rotation @ local_direction, groups, 1, -1, hit
+            )
+            if config['min_range'] <= distance <= config['max_range']:
+                points.append((local_direction * distance).tolist())
+                if row == horizontal_row:
+                    horizontal[column] = float(distance)
+    return np.asarray(points, dtype=np.float32), horizontal
+
+
 class NavigationTransport:
     def __init__(self, config):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4 * 1024 * 1024)
         self.socket.bind(('127.0.0.1', config.get('command_port', 19421)))
         self.socket.setblocking(False)
         self.destination = ('127.0.0.1', config.get('telemetry_port', 19420))
+        self.sensor_destination = ('127.0.0.1', config.get('sensor_port', 19422))
         self.command = np.zeros(3)
         self.received = -math.inf
         self.last_time = None
+        self.last_sensor_frame = None
         self.turn_assist = config.get('turn_assist', {})
         self.turn_started = None
         self.assist_linear = 0.0
@@ -144,10 +190,35 @@ class NavigationTransport:
         if telemetry['time'] == self.last_time:
             return
         self.last_time = telemetry['time']
-        keys = ('time', 'position', 'quaternion', 'linear_velocity', 'scan', 'scan_time')
+        keys = (
+            'time', 'position', 'quaternion', 'linear_velocity', 'scan', 'scan_time',
+            'torso_position_base', 'torso_quaternion_base',
+        )
         self.socket.sendto(
             json.dumps({key: telemetry[key] for key in keys}).encode(), self.destination
         )
+        frame_id = telemetry.get('camera_frame_id')
+        sensors = telemetry.get('sensors')
+        if sensors and frame_id != self.last_sensor_frame:
+            self.last_sensor_frame = frame_id
+            # Keep each modality in an independent compressed message. A raw
+            # RGB-D pair is larger than common UDP receive buffers; independent
+            # sequences prevent one dropped image from discarding LiDAR too.
+            for modality, (name, value) in enumerate(sensors.items()):
+                buffer = io.BytesIO()
+                np.savez_compressed(
+                    buffer, time=telemetry['sensor_time'], **{name: value}
+                )
+                payload = buffer.getvalue()
+                chunk_size = 60000
+                count = math.ceil(len(payload) / chunk_size)
+                sequence = frame_id * 16 + modality
+                for index in range(count):
+                    header = struct.pack('!IHH', sequence, index, count)
+                    self.socket.sendto(
+                        header + payload[index * chunk_size:(index + 1) * chunk_size],
+                        self.sensor_destination,
+                    )
 
     def close(self):
         self.socket.close()

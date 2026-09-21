@@ -2,6 +2,8 @@
 
 Integración inicial de [Nav2 + SLAM Toolbox](docs/navigation.md):
 `bash scripts/navigation.sh` abre MuJoCo y RViz para seleccionar destinos.
+La navegación publica además un MID-360 3D simulado y una D435i RGB-D en tópicos
+ROS estándar, conservando `/scan` como proyección 2D para Nav2.
 Requiere instalar los paquetes indicados en esa guía; validación extremo a
 extremo pendiente.
 

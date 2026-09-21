@@ -2,11 +2,40 @@ kind: navigation
 robot: configs/robot_navigation.yaml
 locomotion: configs/locomotion.yaml
 manipulation: configs/manipulation.yaml
-camera: configs/camera.yaml
+camera:
+  enabled: true
+  record: false
+  max_recorded_frames: 10000
+  rgb: true
+  depth: true
+  width: 424
+  height: 240
+  fps: 10
+  views:
+    - name: d435i
+      body: torso_link
+      # Official G1 D435 mounting point. The camera element uses MuJoCo's
+      # optical convention and looks along the robot's local +X axis.
+      position: [0.0576235, 0.01753, 0.42987]
+      fovy: 58
+      quaternion: [0.5, 0.5, -0.5, -0.5]
 task: configs/task.yaml
 navigation:
   command_port: 19421
   telemetry_port: 19420
+  sensor_port: 19422
+  lidar:
+    enabled: true
+    frame_id: mid360_link
+    body: torso_link
+    # Official G1 MID-360 mounting point relative to torso_link.
+    position: [0.0002835, 0.00003, 0.428434]
+    rpy: [3.141592653589793, 0.05112069379091391, 0.0]
+    horizontal_samples: 360
+    vertical_angles_deg: [-7.0, -5.0, -3.0, -1.0, 0.0, 1.0, 3.0, 5.0, 7.0]
+    min_range: 0.05
+    max_range: 20.0
+    fps: 10
   turn_assist:
     # The original policy turns much better while translating. A smooth
     # backwards-first oscillation avoids forcing an unstable in-place turn.

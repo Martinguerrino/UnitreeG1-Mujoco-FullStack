@@ -52,6 +52,13 @@ def model_xml(config):
     camera = config['camera']
     if camera['enabled']:
         for view in camera.get('views') or [camera]:
+            # Some imported scenes contain a fixed camera placeholder. The
+            # robot-mounted sensor is authoritative and camera names are global
+            # in MuJoCo, so remove a same-named top-level placeholder first.
+            worldbody = scene.find('worldbody')
+            for placeholder in list(worldbody.findall('camera')):
+                if placeholder.get('name') == view.get('name', 'policy_camera'):
+                    worldbody.remove(placeholder)
             parent = model.find(f".//body[@name='{view['body']}']")
             if parent is None:
                 raise ValueError('Camera parent body does not exist')
@@ -199,10 +206,12 @@ def run_simulator(config, initial_q, pipe, stop, release):
         next_scan = 0.0
         scan = None
         scan_time = None
+        lidar_points = None
         next_viewer = 0.0
         sensor_frame = None
         sensor_timestamp = None
         fixture = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_EQUALITY, 'pelvis_fixture')
+        torso_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, 'torso_link')
         if fixture < 0:
             raise ValueError('Warmup requires the existing pelvis_fixture')
         while not stop.is_set():
@@ -229,11 +238,16 @@ def run_simulator(config, initial_q, pipe, stop, release):
                 collisions += len(contacts - previous_contacts)
                 previous_contacts = contacts
                 if config.get('navigation') and data.time >= next_scan:
-                    from .navigation import laser_scan
+                    from .navigation import laser_scan, lidar_scan
 
-                    scan = laser_scan(model, data)
+                    lidar = config['navigation'].get('lidar', {})
+                    if lidar.get('enabled'):
+                        lidar_points, scan = lidar_scan(model, data, lidar)
+                        next_scan = data.time + 1 / lidar['fps']
+                    else:
+                        scan = laser_scan(model, data)
+                        next_scan = data.time + 0.1
                     scan_time = float(data.time)
-                    next_scan = data.time + 0.1
                 if renderer and data.time >= next_camera:
                     # Physics is paused in this process while rendering. Let the
                     # DDS publisher read the stable MjData instead of starving
@@ -252,11 +266,25 @@ def run_simulator(config, initial_q, pipe, stop, release):
                                 renderer.enable_depth_rendering()
                                 sensor_frame[f'{prefix}depth'] = renderer.render().copy()
                                 renderer.disable_depth_rendering()
+                        if lidar_points is not None:
+                            sensor_frame['mid360_points'] = lidar_points.copy()
                     finally:
                         mutex.acquire()
                     sensor_timestamp = float(data.time)
                     next_camera = data.time + 1 / camera['fps']
                 if data.time >= next_telemetry:
+                    qw, qx, qy, qz = data.qpos[3:7]
+                    base_yaw = np.arctan2(
+                        2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz)
+                    )
+                    cy, sy = np.cos(base_yaw), np.sin(base_yaw)
+                    base_rotation = np.array([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]])
+                    torso_rotation = base_rotation.T @ data.xmat[torso_id].reshape(3, 3)
+                    torso_quaternion = np.empty(4)
+                    mujoco.mju_mat2Quat(torso_quaternion, torso_rotation.ravel())
+                    torso_position = base_rotation.T @ (
+                        data.xpos[torso_id] - data.qpos[:3]
+                    )
                     pipe.send(
                         {
                             'time': float(data.time),
@@ -265,6 +293,8 @@ def run_simulator(config, initial_q, pipe, stop, release):
                             'position': data.qpos[:3].tolist(),
                             'quaternion': data.qpos[3:7].tolist(),
                             'linear_velocity': data.qvel[:3].tolist(),
+                            'torso_position_base': torso_position.tolist(),
+                            'torso_quaternion_base': torso_quaternion.tolist(),
                             'steps': steps,
                             'steps_per_second': steps / (time.monotonic() - started),
                             'simulator_cpu_percent': 100

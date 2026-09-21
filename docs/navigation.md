@@ -16,6 +16,21 @@ cmd_vel → política RL Lab original → LowCmd DDS → MuJoCo. Nav2 calcula lo
 la política produce las consignas articulares. No se usan los waypoints del
 test mesa-a-mesa para conducir esta modalidad.
 
+La simulación de navegación equipa al G1 con una D435i RGB-D y un MID-360 3D
+aproximado, ambos montados en `torso_link` usando las posiciones del URDF
+oficial. El control SDK2/DDS no se modifica: percepción se transporta por un
+canal local independiente y el puente ROS publica:
+
+- `/mid360/points` (`sensor_msgs/PointCloud2`, frame `mid360_link`);
+- `/camera/color/image_raw` (`rgb8`);
+- `/camera/depth/image_rect_raw` (`32FC1`, profundidad en metros);
+- `/camera/color/camera_info`;
+- `/scan`, proyección horizontal del MID-360 usada por SLAM Toolbox y Nav2.
+
+En RViz se pueden agregar displays `PointCloud2`, `Image` y `LaserScan` con
+esos tópicos. La configuración reproducible de resolución, frecuencia, montaje,
+capas verticales y alcance está en `configs/experiments/navigation.yaml`.
+
 SLAM Toolbox construye `/map` y publica `map → odom`. El puente publica
 `odom → base_link → laser`, `/odom`, `/clock` y `/scan`. Todos los nodos Nav2
 y SLAM usan tiempo simulado. ROS usa Python del sistema y FastDDS en dominio
@@ -129,10 +144,14 @@ aporta SLAM durante mapping o AMCL con mapa guardado.
 
 - La odometría de entrada es ideal y procede de MuJoCo: falta un estimador
   propio para un robot físico. La corrección global sí corresponde a SLAM/AMCL.
-- El láser virtual estabilizado usa rayos físicos a 0.78 m de altura, 360 rayos,
-  10 Hz simulados y 20 m de alcance. Sólo ve geometría del grupo 2 del escenario
-  Maxwell. Esta altura detecta las superficies de ambas mesas; un escáner 2D
-  puede omitir obstáculos bajos y desniveles. No usar para validar rampas.
+- El MID-360 simulado usa ray casting físico, 360 muestras horizontales, nueve
+  capas verticales, 10 Hz y 20 m de alcance. No reproduce todavía el patrón
+  no repetitivo, reflectividad, retorno múltiple, ruido ni latencia del Livox
+  real. `/scan` usa su capa más cercana a la horizontal; puede omitir obstáculos
+  bajos y desniveles, por lo que no debe usarse para validar rampas.
+- La D435i produce RGB y profundidad geométrica de MuJoCo a 424×240 y 10 Hz.
+  Sus frames e intrínsecos ROS están disponibles, pero aún no se modelan ruido
+  estéreo, agujeros de profundidad, exposición, rolling shutter ni distorsión.
 - Se utiliza una base planar para navegación; la política controla el balance
   completo del humanoide. La huella circular de 0.4 m es una aproximación.
 - Los parámetros efectivos de Nav2 se generan desde los defaults de la versión
