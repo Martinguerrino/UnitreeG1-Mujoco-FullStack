@@ -49,7 +49,9 @@ class Bridge(Node):
         for parent, child, xyz, quaternion in (
             ('base_link', 'laser', (0.0, 0.0, 0.78), (1.0, 0.0, 0.0, 0.0)),
             ('d435_link', 'd435i_color_optical_frame', (0.0, 0.0, 0.0),
-             (0.5, 0.5, -0.5, -0.5)),
+             # ROS optical axes: right, down, forward. MuJoCo cameras use
+             # right, up, backward, so their last two axes must be flipped.
+             (0.5, -0.5, 0.5, -0.5)),
         ):
             sensor = TransformStamped()
             sensor.header.frame_id = parent

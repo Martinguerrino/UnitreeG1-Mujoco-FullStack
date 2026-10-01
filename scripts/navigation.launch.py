@@ -117,6 +117,28 @@ def prepare(context):
                       'Reliability Policy': 'Best Effort',
                       'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
         },
+        {
+            'Class': 'rviz_common/Group', 'Name': 'D435i Projection 3D',
+            'Enabled': False, 'Value': False,
+            'Displays': [
+                {
+                    'Class': 'rviz_default_plugins/CameraInfo', 'Name': 'Camera field of view',
+                    'Enabled': True, 'Value': True, 'Far clip': 0.8,
+                    'Show edges': True, 'Show polygons': False,
+                    'Edge color': '0; 220; 255',
+                    'Topic': {'Value': '/camera/color/camera_info', 'Depth': 1,
+                              'Reliability Policy': 'Reliable',
+                              'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
+                },
+                {
+                    'Class': 'rviz_default_plugins/Marker', 'Name': 'RGB image plane',
+                    'Enabled': True, 'Value': True,
+                    'Topic': {'Value': '/camera/color/image_plane', 'Depth': 1,
+                              'Reliability Policy': 'Best Effort',
+                              'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
+                },
+            ],
+        },
     ])
     rviz_config['Visualization Manager']['Views']['Current'] = {
         'Class': 'rviz_default_plugins/Orbit', 'Name': 'G1 3D', 'Distance': 7.0,
@@ -152,6 +174,11 @@ def prepare(context):
         Node(package='robot_state_publisher', executable='robot_state_publisher',
              parameters=[robot_description, {'use_sim_time': True}], output='screen'),
     ]
+    if not ideal:
+        actions.append(ExecuteProcess(
+            cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_camera_plane.py')],
+            output='screen',
+        ))
     # Either essential process exiting must stop the stack. Emit shutdown only
     # once so simultaneous exits do not race ROS cleanup.
     shutdown_requested = False

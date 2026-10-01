@@ -38,6 +38,16 @@ de la vista 3D. La distribución está en `configs/navigation_rviz_layout.yaml`;
 abrir desde el menú Panels. La herramienta Nav2 Goal sigue en la barra superior.
 Para cargarla en un RViz ya abierto, usar
 File → Open Config y seleccionar `results/navigation/g1_navigation.rviz`.
+La opción adicional `D435i Projection 3D` en Displays empieza desactivada.
+Al marcarla, dibuja el campo de visión desde el frame óptico de la D435i y
+la imagen RGB sobre un plano a 0.8 m, con la calibración y el tiempo de captura.
+Es una representación visual de la imagen, no una reconstrucción de obstáculos:
+no usa profundidad ni alimenta SLAM/Nav2. Los paneles RGB y Depth siguen disponibles.
+El proceso `navigation_camera_plane.py` publica `/camera/color/image_plane`
+solo cuando hay suscriptores, usando una muestra cada ocho píxeles por eje.
+La imagen se dibuja con triángulos coplanares, perpendiculares al eje óptico;
+mantiene la orientación del torso y no gira para mirar al observador de RViz.
+El visualizador CameraInfo usa `/camera/color/camera_info` para las aristas.
 
 SLAM Toolbox construye `/map` y publica `map → odom`. El puente publica
 `odom → base_link → pelvis`, `/joint_states`, `/odom`, `/clock` y `/scan`.
