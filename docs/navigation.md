@@ -32,6 +32,12 @@ canal local independiente y el puente ROS publica:
 En RViz se pueden agregar displays `PointCloud2`, `Image` y `LaserScan` con
 esos tópicos. La configuración reproducible de resolución, frecuencia, montaje,
 capas verticales y alcance está en `configs/experiments/navigation.yaml`.
+El arranque normal abre los paneles `D435i RGB` y `D435i Depth` a la derecha
+de la vista 3D. La distribución está en `configs/navigation_rviz_layout.yaml`;
+`Navigation 2` inicia oculto para dejar espacio a las imágenes y se puede
+abrir desde el menú Panels. La herramienta Nav2 Goal sigue en la barra superior.
+Para cargarla en un RViz ya abierto, usar
+File → Open Config y seleccionar `results/navigation/g1_navigation.rviz`.
 
 SLAM Toolbox construye `/map` y publica `map → odom`. El puente publica
 `odom → base_link → pelvis`, `/joint_states`, `/odom`, `/clock` y `/scan`.

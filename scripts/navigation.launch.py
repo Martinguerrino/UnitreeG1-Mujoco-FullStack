@@ -123,6 +123,11 @@ def prepare(context):
         'Pitch': 0.55, 'Yaw': 0.8, 'Target Frame': 'base_link',
         'Focal Point': {'X': 0.0, 'Y': 0.0, 'Z': 0.8},
     }
+    # Nav2's saved Qt layout has no camera docks. Restore our layout so both
+    # image panels are visible beside the 3D view instead of inheriting it.
+    rviz_config['Window Geometry'] = yaml.safe_load(
+        (ROOT / 'configs/navigation_rviz_layout.yaml').read_text()
+    )
     rviz_path = directory / 'g1_navigation.rviz'
     rviz_path.write_text(yaml.safe_dump(rviz_config, sort_keys=False))
     robot_description = {
