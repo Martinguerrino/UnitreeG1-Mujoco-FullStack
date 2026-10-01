@@ -25,8 +25,10 @@ if __name__ == '__main__':
     parser.add_argument('--viewer', choices=['true', 'false'], default='true')
     parser.add_argument('--ideal', choices=['true', 'false'], default='false')
     parser.add_argument('--duration', type=float, default=3600.0)
+    parser.add_argument('--dexterity', choices=['claw', 'hand'], default='hand')
     args = parser.parse_args()
     config = load_config(ROOT / 'configs/experiments/navigation.yaml')
+    config['robot']['dexterity'] = args.dexterity
     if args.ideal == 'true':
         # Original lightweight navigation setup: ideal planar scan only.
         config['camera']['enabled'] = False

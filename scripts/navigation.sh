@@ -2,12 +2,28 @@
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LAUNCH_ARGS=()
-for argument in "$@"; do
-  if [[ "$argument" == "--ideal" ]]; then
-    LAUNCH_ARGS+=("ideal:=true")
-  else
-    LAUNCH_ARGS+=("$argument")
-  fi
+while (($#)); do
+  case "$1" in
+    --dexterity)
+      if (($# < 2)) || [[ "$2" != claw && "$2" != hand ]]; then
+        echo "Uso: --dexterity claw|hand" >&2
+        exit 2
+      fi
+      LAUNCH_ARGS+=("dexterity:=$2")
+      shift 2
+      ;;
+    --dexterity=*)
+      value="${1#*=}"
+      if [[ "$value" != claw && "$value" != hand ]]; then
+        echo "Uso: --dexterity claw|hand" >&2
+        exit 2
+      fi
+      LAUNCH_ARGS+=("dexterity:=$value")
+      shift
+      ;;
+    --ideal) LAUNCH_ARGS+=("ideal:=true"); shift ;;
+    *) LAUNCH_ARGS+=("$1"); shift ;;
+  esac
 done
 # ROS uses system Python/FastDDS; SDK2 uses Conda in a separate process.
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"

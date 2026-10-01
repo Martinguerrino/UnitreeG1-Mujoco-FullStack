@@ -13,8 +13,32 @@ set +u
 source scripts/activate.sh
 set -u
 
+LAUNCH_ARGS=()
+while (($#)); do
+  case "$1" in
+    --dexterity)
+      if (($# < 2)) || [[ "$2" != claw && "$2" != hand ]]; then
+        echo "Uso: --dexterity claw|hand" >&2
+        exit 2
+      fi
+      LAUNCH_ARGS+=("dexterity:=$2")
+      shift 2
+      ;;
+    --dexterity=*)
+      value="${1#*=}"
+      if [[ "$value" != claw && "$value" != hand ]]; then
+        echo "Uso: --dexterity claw|hand" >&2
+        exit 2
+      fi
+      LAUNCH_ARGS+=("dexterity:=$value")
+      shift
+      ;;
+    --ideal) LAUNCH_ARGS+=("ideal:=true"); shift ;;
+    *) LAUNCH_ARGS+=("$1"); shift ;;
+  esac
+done
 MOVEIT_REQUESTED=false
-for argument in "$@"; do
+for argument in "${LAUNCH_ARGS[@]}"; do
   if [[ "${argument}" == "moveit:=true" ]]; then
     MOVEIT_REQUESTED=true
     break
@@ -31,4 +55,4 @@ if [[ "${MOVEIT_REQUESTED}" == true ]] && \
   exit 1
 fi
 
-exec ros2 launch g1_bringup simulation.launch.py "$@"
+exec ros2 launch g1_bringup simulation.launch.py "${LAUNCH_ARGS[@]}"

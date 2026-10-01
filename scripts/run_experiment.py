@@ -15,8 +15,14 @@ def main():
     parser.add_argument(
         '--report', type=Path, help='Write machine-readable result separately from SDK logs'
     )
+    parser.add_argument('--dexterity', choices=['claw', 'hand'])
     args = parser.parse_args()
-    result = run_experiment(args.config)
+    from g1_backend.config import load_config
+
+    config = load_config(args.config)
+    if args.dexterity is not None:
+        config['robot']['dexterity'] = args.dexterity
+    result = run_experiment(config)
     if args.report:
         from g1_backend.evaluation import write_json
 

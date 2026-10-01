@@ -16,6 +16,14 @@
 import os
 from pathlib import Path
 import tempfile
+import sys
+import xml.etree.ElementTree as ET
+
+# Locate the workspace helper for both source and installed launch files.
+for parent in Path(__file__).resolve().parents:
+    if (parent / "g1_backend").is_dir():
+        sys.path.insert(0, str(parent))
+        break
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -27,7 +35,7 @@ from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 import yaml
 
 
-def _materialize_mjcf(fixed_base: bool) -> str:
+def _materialize_mjcf(fixed_base: bool, dexterity: str = 'hand') -> str:
     """Create a self-contained temporary scene with an absolute mesh path."""
     description_share = Path(get_package_share_directory('g1_description'))
     mujoco_share = Path(get_package_share_directory('g1_mujoco'))
@@ -36,6 +44,14 @@ def _materialize_mjcf(fixed_base: bool) -> str:
     model = (mujoco_share / 'mjcf' / 'g1_29dof.xml').read_text()
     mesh_dir = description_share / 'meshes'
     model = model.replace('meshdir="meshes"', f'meshdir="{mesh_dir}"', 1)
+    if dexterity not in ('hand', 'claw'):
+        raise ValueError('dexterity must be hand or claw')
+    if dexterity == 'claw':
+        from g1_backend.dex1 import add_dex1
+
+        root = ET.fromstring(model)
+        add_dex1(root)
+        model = ET.tostring(root, encoding='unicode')
     (generated / 'g1_29dof.xml').write_text(model)
     scene = (mujoco_share / 'scenes' / 'scene_29dof.xml').read_text()
     if not fixed_base:
@@ -51,7 +67,8 @@ def _launch_setup(context):
     fixed_base = LaunchConfiguration('fixed_base').perform(context).lower() == 'true'
     moveit_enabled = LaunchConfiguration('moveit').perform(context).lower() == 'true'
     use_sim_time = LaunchConfiguration('use_sim_time').perform(context).lower() == 'true'
-    model_path = _materialize_mjcf(fixed_base)
+    dexterity = LaunchConfiguration('dexterity').perform(context)
+    model_path = _materialize_mjcf(fixed_base, dexterity)
     description_share = get_package_share_directory('g1_description')
     control_share = get_package_share_directory('g1_control')
     xacro_file = os.path.join(description_share, 'urdf', 'g1_29dof.urdf.xacro')
@@ -73,6 +90,10 @@ def _launch_setup(context):
             headless,
         ]
     ).perform(context)
+    if dexterity == 'claw':
+        from g1_backend.dexterity import description_with_claws
+
+        robot_description_xml = description_with_claws(robot_description_xml)
     robot_description = {
         'robot_description': ParameterValue(robot_description_xml, value_type=str)
     }
@@ -260,6 +281,7 @@ def _launch_setup(context):
 def generate_launch_description():
     return LaunchDescription(
         [
+            DeclareLaunchArgument('dexterity', default_value='hand', choices=['hand', 'claw']),
             DeclareLaunchArgument(
                 'headless',
                 default_value='false',

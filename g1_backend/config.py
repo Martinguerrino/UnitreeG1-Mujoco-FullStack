@@ -43,6 +43,8 @@ def load_config(source):
         if isinstance(config.get(name), str):
             config[name] = yaml.safe_load((ROOT / config[name]).read_text())
     robot = config['robot']
+    if robot.get('dexterity', 'hand') not in ('hand', 'claw'):
+        raise ValueError('dexterity must be hand or claw')
     if (
         robot['interface'] != 'lo'
         or type(robot['domain_id']) is not int

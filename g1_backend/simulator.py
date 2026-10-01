@@ -27,6 +27,13 @@ def model_xml(config):
     robot = config['robot']
     model = ET.fromstring((ROOT / robot['model']).read_text())
     model.find('compiler').set('meshdir', str(ROOT / robot['meshes']))
+    dexterity = robot.get('dexterity', 'hand')
+    if dexterity not in ('hand', 'claw'):
+        raise ValueError('dexterity must be hand or claw')
+    if dexterity == 'claw':
+        from .dex1 import add_dex1
+
+        add_dex1(model)
     scene = ET.fromstring((ROOT / robot['scene']).read_text())
     option = scene.find('option')
     if option is None:
@@ -93,6 +100,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     workers = {}
     viewer = None
+    grippers = None
     try:
         runtime_path()
         live_view = config.get('viewer', {}).get('enabled', False)
@@ -124,9 +132,18 @@ def run_simulator(config, initial_q, pipe, stop, release):
             (path / 'g1_29dof.xml').write_text(model_source)
             (path / 'scene.xml').write_text(scene_source)
             model = mujoco.MjModel.from_xml_path(str(path / 'scene.xml'))
+        body_model = model
+        if robot.get('dexterity', 'hand') == 'claw':
+            body_config = {**config, 'robot': {**robot, 'dexterity': 'hand'}}
+            body_source, body_scene = model_xml(body_config)
+            with tempfile.TemporaryDirectory(prefix='g1_body_') as directory:
+                path = Path(directory)
+                (path / 'g1_29dof.xml').write_text(body_source)
+                (path / 'scene.xml').write_text(body_scene)
+                body_model = mujoco.MjModel.from_xml_path(str(path / 'scene.xml'))
         data = mujoco.MjData(model)
         # Episode initialization only. Runtime control is exclusively LowCmd -> bridge -> ctrl.
-        for i in range(model.nu):
+        for i in range(29):
             data.qpos[model.jnt_qposadr[model.actuator_trnid[i, 0]]] = initial_q[i]
         mujoco.mj_forward(model, data)
         if live_view:
@@ -134,6 +151,13 @@ def run_simulator(config, initial_q, pipe, stop, release):
 
             viewer = mujoco.viewer.launch_passive(model, data)
         ChannelFactoryInitialize(robot['domain_id'], robot['interface'])
+        plant = None
+        if robot.get('dexterity', 'hand') == 'claw':
+            from .dex1 import GripperDds, GripperPlant, motor_to_slide
+
+            plant = GripperPlant(model)
+            data.qpos[plant.qadr] = motor_to_slide(5.4)
+            grippers = GripperDds(server=True)
         mutex = threading.RLock()
 
         class Bridge(upstream.UnitreeSdk2Bridge):
@@ -146,7 +170,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
                 self.crc_check = CRC()
                 # Upstream initializes names without underscores but publishes using underscores.
                 self.have_imu_ = self.have_frame_sensor_ = False
-                super().__init__(model, data)
+                super().__init__(body_model, data)
 
             def LowCmdHandler(self, message):
                 with mutex:
@@ -177,7 +201,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
                 if stale:
                     if not self.timed_out:
                         self.watchdog_events += 1
-                    data.ctrl[:] = -2 * data.sensordata[29:58]
+                    data.ctrl[:29] = -2 * data.sensordata[29:58]
                 elif self.latest is not None:
                     super().LowCmdHandler(self.latest)
                 self.timed_out = stale
@@ -231,6 +255,13 @@ def run_simulator(config, initial_q, pipe, stop, release):
                 if release.is_set():
                     data.eq_active[fixture] = 0
                 bridge.advance()
+                if plant is not None:
+                    try:
+                        gripper_target = grippers.read()
+                    except TimeoutError:
+                        gripper_target = None
+                    plant.advance(data, gripper_target)
+                    grippers.send(plant.encoder_state(data))
                 mujoco.mj_step(model, data)
                 # mj_step leaves Cartesian poses at the previous integration step.
                 if (data.time >= next_telemetry
@@ -336,6 +367,8 @@ def run_simulator(config, initial_q, pipe, stop, release):
     except BaseException:  # noqa: BLE001 - forward child failures to parent
         pipe.send({'error': traceback.format_exc()})
     finally:
+        if grippers is not None:
+            grippers.close()
         if viewer:
             viewer.close()
         for worker in workers.values():

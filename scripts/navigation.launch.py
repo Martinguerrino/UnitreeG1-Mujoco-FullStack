@@ -2,6 +2,9 @@
 
 from pathlib import Path
 import tempfile
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import yaml
 from ament_index_python.packages import get_package_share_directory
@@ -152,17 +155,22 @@ def prepare(context):
     )
     rviz_path = directory / 'g1_navigation.rviz'
     rviz_path.write_text(yaml.safe_dump(rviz_config, sort_keys=False))
+    description_xml = Command([
+        FindExecutable(name='xacro'), ' ',
+        str(description / 'urdf/g1_29dof.urdf.xacro'),
+    ]).perform(context)
+    if LaunchConfiguration('dexterity').perform(context) == 'claw':
+        from g1_backend.dexterity import description_with_claws
+
+        description_xml = description_with_claws(description_xml)
     robot_description = {
-        'robot_description': ParameterValue(
-            Command([FindExecutable(name='xacro'), ' ',
-                     str(description / 'urdf/g1_29dof.urdf.xacro')]),
-            value_type=str,
-        )
+        'robot_description': ParameterValue(description_xml, value_type=str)
     }
     simulator = ExecuteProcess(
         cmd=[LaunchConfiguration('sim_python'), str(ROOT / 'scripts/navigation_sim.py'),
              '--viewer', LaunchConfiguration('viewer'),
-             '--ideal', LaunchConfiguration('ideal')],
+             '--ideal', LaunchConfiguration('ideal'),
+             '--dexterity', LaunchConfiguration('dexterity')],
         output='screen',
     )
     bridge = ExecuteProcess(
@@ -236,6 +244,7 @@ def generate_launch_description():
         DeclareLaunchArgument('map', default_value=''),
         DeclareLaunchArgument('viewer', default_value='true'),
         DeclareLaunchArgument('rviz', default_value='true'),
+        DeclareLaunchArgument('dexterity', default_value='hand', choices=['hand', 'claw']),
         DeclareLaunchArgument('ideal', default_value='false'),
         DeclareLaunchArgument('sim_python', default_value=
                               '/home/martin/miniforge3/envs/mujoco-unitree/bin/python'),

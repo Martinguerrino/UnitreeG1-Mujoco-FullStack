@@ -186,3 +186,21 @@ scripts             tareas repetibles de desarrollo
 El modelo y los meshes de Unitree conservan su licencia y procedencia en
 [`third_party/README.md`](third_party/README.md). El código propio usa Apache-2.0.
 # UnitreeG1-Mujoco-FullStack
+
+Para elegir el extremo de los brazos al iniciar la simulación:
+
+```bash
+bash scripts/navigation.sh --dexterity claw   # Dos pinzas Dex1
+bash scripts/navigation.sh --dexterity hand   # Manos originales (predeterminado)
+bash scripts/sim.sh --dexterity claw
+```
+
+También disponible en `scripts/view_mujoco.py`, `scripts/navigation_sim.py` y
+`scripts/run_experiment.py`. En ROS launch se usa `dexterity:=claw`; en las
+configuraciones del backend, `robot.dexterity: claw`. Las pinzas requieren los
+assets preparados con `python scripts/setup_dex1.py`. La selección genera una
+copia temporal del modelo y conserva los archivos originales. En navegación,
+las pinzas usan sus tópicos DDS independientes `rt/dex1/{left,right}/{cmd,state}`;
+sin comandos aplican amortiguación. El stack ROS de `sim.sh` muestra y simula
+las pinzas, pero sus controladores corporales existentes no comandan los dedos.
+La selección no activa por sí sola la política ACT ni valida un agarre.
