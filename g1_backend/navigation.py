@@ -1,4 +1,4 @@
-"""Loopback transport and ideal, level 2-D LiDAR for the simulation-only ROS bridge."""
+"""Loopback transport and mounted 3-D / ideal planar navigation sensors."""
 
 import json
 import io
@@ -49,25 +49,55 @@ def lidar_scan(model, data, config):
     body_rotation = data.xmat[body_id].reshape(3, 3)
     rotation = body_rotation @ mount_rotation
     origin = data.xpos[body_id] + body_rotation @ np.asarray(config['position'])
-    groups = np.array([0, 0, 1, 0, 0, 0], dtype=np.uint8)
-    hit = np.zeros(1, dtype=np.int32)
+    # Include robot collision geometry as an occluder, then discard self hits.
+    # Visual duplicates (group 1) are excluded; world geometry is group 2.
+    groups = np.array([1, 0, 1, 0, 0, 0], dtype=np.uint8)
     angles = np.linspace(-math.pi, math.pi, config['horizontal_samples'], endpoint=False)
     elevations = np.radians(config['vertical_angles_deg'])
-    points = []
-    horizontal = [None] * len(angles)
-    horizontal_row = int(np.argmin(np.abs(elevations)))
-    for row, elevation in enumerate(elevations):
-        ce, se = math.cos(elevation), math.sin(elevation)
-        for column, azimuth in enumerate(angles):
-            local_direction = np.array([ce * math.cos(azimuth), ce * math.sin(azimuth), se])
-            distance = mujoco.mj_ray(
-                model, data, origin, rotation @ local_direction, groups, 1, -1, hit
-            )
-            if config['min_range'] <= distance <= config['max_range']:
-                points.append((local_direction * distance).tolist())
-                if row == horizontal_row:
-                    horizontal[column] = float(distance)
-    return np.asarray(points, dtype=np.float32), horizontal
+    local_directions = np.asarray([
+        [math.cos(elevation) * math.cos(azimuth),
+         math.cos(elevation) * math.sin(azimuth), math.sin(elevation)]
+        for elevation in elevations for azimuth in angles
+    ], dtype=np.float64)
+    world_directions = np.ascontiguousarray(local_directions @ rotation.T)
+    distances = np.empty(len(world_directions), dtype=np.float64)
+    geom_ids = np.empty(len(world_directions), dtype=np.int32)
+    mujoco.mj_multiRay(
+        model, data, origin, world_directions.ravel(), groups, 1, -1, geom_ids,
+        distances, len(world_directions), config['max_range'],
+    )
+    valid = (distances >= config['min_range']) & (distances <= config['max_range'])
+    root_id = int(model.body_rootid[body_id])
+    self_hit = np.zeros(len(distances), dtype=bool)
+    hits = geom_ids >= 0
+    self_hit[hits] = model.body_rootid[model.geom_bodyid[geom_ids[hits]]] == root_id
+    valid &= ~self_hit
+    points = (local_directions[valid] * distances[valid, None]).astype(np.float32)
+    world_points = origin + points.astype(np.float64) @ rotation.T
+    return points, project_scan(world_points, data.qpos[:3],
+                                yaw_from_quaternion(data.qpos[3:7]), config)
+
+
+def project_scan(world_points, base_position, yaw, config):
+    """Bin actual 3-D returns in a level, yaw-only frame at base XY, z=0.78.
+
+    Ranges are planar distances, not slant ranges. All elevations contribute;
+    ground/overhead points are rejected by world height. No synthetic rays.
+    """
+    count = config['horizontal_samples']
+    points = np.asarray(world_points, dtype=float).reshape(-1, 3)
+    delta = points[:, :2] - np.asarray(base_position)[:2]
+    ranges = np.linalg.norm(delta, axis=1)
+    valid = (np.isfinite(points).all(axis=1)
+             & (points[:, 2] >= config.get('scan_min_height', 0.15))
+             & (points[:, 2] <= config.get('scan_max_height', 1.5))
+             & (ranges >= config['min_range']) & (ranges <= config['max_range']))
+    angle = (np.arctan2(delta[valid, 1], delta[valid, 0]) - yaw + math.pi) % (2 * math.pi)
+    bins = np.floor(angle * count / (2 * math.pi) + 0.5).astype(int) % count
+    nearest = np.full(count, np.inf)
+    np.minimum.at(nearest, bins, ranges[valid])
+    return [float(value) if np.isfinite(value) else None for value in nearest]
+
 
 
 class NavigationTransport:
@@ -81,7 +111,7 @@ class NavigationTransport:
         self.command = np.zeros(3)
         self.received = -math.inf
         self.last_time = None
-        self.last_sensor_frame = None
+        self.sensor_sequence = 0
         self.turn_assist = config.get('turn_assist', {})
         self.turn_started = None
         self.assist_linear = 0.0
@@ -192,27 +222,28 @@ class NavigationTransport:
         self.last_time = telemetry['time']
         keys = (
             'time', 'position', 'quaternion', 'linear_velocity', 'scan', 'scan_time',
-            'torso_position_base', 'torso_quaternion_base',
+            'torso_position_base', 'torso_quaternion_base', 'joint_names',
+            'joint_positions',
         )
         self.socket.sendto(
             json.dumps({key: telemetry[key] for key in keys}).encode(), self.destination
         )
-        frame_id = telemetry.get('camera_frame_id')
         sensors = telemetry.get('sensors')
-        if sensors and frame_id != self.last_sensor_frame:
-            self.last_sensor_frame = frame_id
+        if sensors:
             # Keep each modality in an independent compressed message. A raw
             # RGB-D pair is larger than common UDP receive buffers; independent
             # sequences prevent one dropped image from discarding LiDAR too.
-            for modality, (name, value) in enumerate(sensors.items()):
+            for name, value in sensors.items():
                 buffer = io.BytesIO()
                 np.savez_compressed(
-                    buffer, time=telemetry['sensor_time'], **{name: value}
+                    buffer, time=telemetry.get('sensor_times', {}).get(name, telemetry['sensor_time']),
+                    **{name: value}
                 )
                 payload = buffer.getvalue()
                 chunk_size = 60000
                 count = math.ceil(len(payload) / chunk_size)
-                sequence = frame_id * 16 + modality
+                self.sensor_sequence += 1
+                sequence = self.sensor_sequence
                 for index in range(count):
                     header = struct.pack('!IHH', sequence, index, count)
                     self.socket.sendto(

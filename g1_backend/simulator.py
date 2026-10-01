@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os
 import resource
+import signal
 from pathlib import Path
 import sys
 import tempfile
@@ -89,7 +90,8 @@ def joint_limits(config):
 
 
 def run_simulator(config, initial_q, pipe, stop, release):
-    renderer = None
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    workers = {}
     viewer = None
     try:
         runtime_path()
@@ -181,18 +183,16 @@ def run_simulator(config, initial_q, pipe, stop, release):
                 self.timed_out = stale
 
         camera = config['camera']
-        camera_views = camera.get('views') or [{'name': 'policy_camera'}]
+        from .sensor_worker import SensorWorker
+
+        state_spec = mujoco.mjtState.mjSTATE_INTEGRATION
+        state_size = mujoco.mj_stateSize(model, state_spec)
+        sensor_state = np.empty(state_size)
+        sources = (model_source, scene_source)
         if camera['enabled']:
-            renderer = mujoco.Renderer(model, camera['height'], camera['width'])
-            # EGL shader compilation can take longer than the state watchdog.
-            # Warm the renderer before announcing readiness or starting DDS threads.
-            for view in camera_views:
-                renderer.update_scene(data, camera=view['name'])
-                renderer.render()
-            if camera['depth']:
-                renderer.enable_depth_rendering()
-                renderer.render()
-                renderer.disable_depth_rendering()
+            workers['camera'] = SensorWorker('camera', config, sources, state_size)
+        if config.get('navigation'):
+            workers['lidar'] = SensorWorker('lidar', config, sources, state_size)
         bridge = Bridge()
         pipe.send({'ready': True})
         started = time.monotonic()
@@ -206,12 +206,19 @@ def run_simulator(config, initial_q, pipe, stop, release):
         next_scan = 0.0
         scan = None
         scan_time = None
-        lidar_points = None
         next_viewer = 0.0
         sensor_frame = None
+        sensor_times = {}
         sensor_timestamp = None
+        camera_timestamp = None
         fixture = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_EQUALITY, 'pelvis_fixture')
         torso_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, 'torso_link')
+        joint_ids = model.actuator_trnid[:, 0]
+        joint_names = [
+            mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, int(joint_id))
+            for joint_id in joint_ids
+        ]
+        joint_qpos_addresses = model.jnt_qposadr[joint_ids]
         if fixture < 0:
             raise ValueError('Warmup requires the existing pelvis_fixture')
         while not stop.is_set():
@@ -219,11 +226,17 @@ def run_simulator(config, initial_q, pipe, stop, release):
                 stop.set()
                 break
             before = time.monotonic()
+            received_frames = {kind: worker.receive() for kind, worker in workers.items()}
             with mutex:
                 if release.is_set():
                     data.eq_active[fixture] = 0
                 bridge.advance()
                 mujoco.mj_step(model, data)
+                # mj_step leaves Cartesian poses at the previous integration step.
+                if (data.time >= next_telemetry
+                        or (config.get('navigation') and data.time >= next_scan)
+                        or ('camera' in workers and data.time >= next_camera)):
+                    mujoco.mj_forward(model, data)
                 steps += 1
                 contacts = set()
                 for contact in data.contact:
@@ -237,41 +250,29 @@ def run_simulator(config, initial_q, pipe, stop, release):
                     contacts.add(tuple(sorted((int(contact.geom1), int(contact.geom2)))))
                 collisions += len(contacts - previous_contacts)
                 previous_contacts = contacts
-                if config.get('navigation') and data.time >= next_scan:
-                    from .navigation import laser_scan, lidar_scan
-
-                    lidar = config['navigation'].get('lidar', {})
-                    if lidar.get('enabled'):
-                        lidar_points, scan = lidar_scan(model, data, lidar)
-                        next_scan = data.time + 1 / lidar['fps']
-                    else:
-                        scan = laser_scan(model, data)
-                        next_scan = data.time + 0.1
-                    scan_time = float(data.time)
-                if renderer and data.time >= next_camera:
-                    # Physics is paused in this process while rendering. Let the
-                    # DDS publisher read the stable MjData instead of starving
-                    # LowState for the duration of two EGL renders.
-                    mutex.release()
-                    try:
+                camera_due = 'camera' in workers and data.time >= next_camera
+                lidar_due = 'lidar' in workers and data.time >= next_scan
+                if camera_due or lidar_due:
+                    mujoco.mj_getState(model, data, sensor_state, state_spec)
+                    if camera_due and workers['camera'].submit(float(data.time), sensor_state):
+                        next_camera = data.time + 1 / camera['fps']
+                    if lidar_due and workers['lidar'].submit(float(data.time), sensor_state):
+                        lidar = config['navigation'].get('lidar', {})
+                        next_scan = data.time + (1 / lidar['fps'] if lidar.get('enabled') else 0.1)
+                for kind, frame in received_frames.items():
+                    if frame is None:
+                        continue
+                    if kind == 'camera':
                         rendered_frames += 1
-                        sensor_frame = {}
-                        multiple_views = 'views' in camera
-                        for view in camera_views:
-                            renderer.update_scene(data, camera=view['name'])
-                            prefix = f"{view['name']}_" if multiple_views else ''
-                            if camera['rgb']:
-                                sensor_frame[f'{prefix}rgb'] = renderer.render().copy()
-                            if camera['depth']:
-                                renderer.enable_depth_rendering()
-                                sensor_frame[f'{prefix}depth'] = renderer.render().copy()
-                                renderer.disable_depth_rendering()
-                        if lidar_points is not None:
-                            sensor_frame['mid360_points'] = lidar_points.copy()
-                    finally:
-                        mutex.acquire()
-                    sensor_timestamp = float(data.time)
-                    next_camera = data.time + 1 / camera['fps']
+                        camera_timestamp = frame['time']
+                    else:
+                        scan = frame['scan']
+                        scan_time = frame['time']
+                    if frame['sensors']:
+                        sensor_frame = sensor_frame or {}
+                        sensor_frame.update(frame['sensors'])
+                        sensor_times.update({name: frame['time'] for name in frame['sensors']})
+                        sensor_timestamp = frame['time']
                 if data.time >= next_telemetry:
                     qw, qx, qy, qz = data.qpos[3:7]
                     base_yaw = np.arctan2(
@@ -293,6 +294,8 @@ def run_simulator(config, initial_q, pipe, stop, release):
                             'position': data.qpos[:3].tolist(),
                             'quaternion': data.qpos[3:7].tolist(),
                             'linear_velocity': data.qvel[:3].tolist(),
+                            'joint_names': joint_names,
+                            'joint_positions': data.qpos[joint_qpos_addresses].tolist(),
                             'torso_position_base': torso_position.tolist(),
                             'torso_quaternion_base': torso_quaternion.tolist(),
                             'steps': steps,
@@ -304,6 +307,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
                                 resource.RUSAGE_SELF
                             ).ru_maxrss
                             * 1024,
+                            'camera_renderer': workers['camera'].info if 'camera' in workers else None,
                             'render_fps': rendered_frames / (time.monotonic() - started),
                             'collisions': collisions,
                             'watchdog_events': bridge.watchdog_events,
@@ -313,9 +317,17 @@ def run_simulator(config, initial_q, pipe, stop, release):
                             'invalid_commands': bridge.invalid_commands,
                             'sensors': sensor_frame,
                             'sensor_time': sensor_timestamp,
+                            'sensor_times': sensor_times.copy(),
                             'camera_frame_id': rendered_frames,
+                            'camera_time': camera_timestamp,
                         }
                     )
+                    # Navigation forwards a sensor frame immediately when it
+                    # arrives. Do not pickle and copy the same RGB-D arrays in
+                    # every 50 Hz telemetry message until the next 10 Hz frame.
+                    if config.get('navigation'):
+                        sensor_frame = None
+                        sensor_times = {}
                     next_telemetry = data.time + 0.02
             if viewer is not None and time.monotonic() >= next_viewer:
                 viewer.sync()
@@ -326,7 +338,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
     finally:
         if viewer:
             viewer.close()
-        if renderer:
-            renderer.close()
+        for worker in workers.values():
+            worker.close()
         pipe.close()
         # Official bridge recurrent threads are daemon threads; process owns their lifecycle.

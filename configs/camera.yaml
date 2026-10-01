@@ -1,4 +1,6 @@
 enabled: false
+# auto: EGL (GPU when available), falling back to OSMesa or software Mesa/EGL (CPU).
+backend: auto
 record: false
 max_recorded_frames: 10000
 rgb: true

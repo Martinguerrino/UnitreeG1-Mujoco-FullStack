@@ -15,10 +15,11 @@ camera:
     - name: d435i
       body: torso_link
       # Official G1 D435 mounting point. The camera element uses MuJoCo's
-      # optical convention and looks along the robot's local +X axis.
-      position: [0.0576235, 0.01753, 0.42987]
+      # optical convention; the URDF pitch points it forward and downward.
+      position: [0.0576235, 0.01753, 0.41987]
       fovy: 58
-      quaternion: [0.5, 0.5, -0.5, -0.5]
+      # Official d435_joint rotation composed with the ROS optical frame.
+      quaternion: [0.6592524821011074, 0.2557071857487173, -0.2557071857487173, -0.6592524821011074]
 task: configs/task.yaml
 navigation:
   command_port: 19421
@@ -29,10 +30,13 @@ navigation:
     frame_id: mid360_link
     body: torso_link
     # Official G1 MID-360 mounting point relative to torso_link.
-    position: [0.0002835, 0.00003, 0.428434]
-    rpy: [3.141592653589793, 0.05112069379091391, 0.0]
+    position: [0.0002835, 0.00003, 0.40618]
+    rpy: [0.0, 0.04014257279586953, 0.0]
     horizontal_samples: 360
-    vertical_angles_deg: [-7.0, -5.0, -3.0, -1.0, 0.0, 1.0, 3.0, 5.0, 7.0]
+    vertical_angles_deg: [-45.0, -30.0, -20.0, -10.0, -7.0, -3.0, 0.0, 3.0, 7.0]
+    # Height band in odom; ground and overhead returns are not obstacles.
+    scan_min_height: 0.15
+    scan_max_height: 1.5
     min_range: 0.05
     max_range: 20.0
     fps: 10

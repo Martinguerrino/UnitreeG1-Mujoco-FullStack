@@ -69,6 +69,8 @@ def load_config(source):
     cam = config['camera']
     if cam.get('record') and not cam.get('enabled'):
         raise ValueError('Camera recording requires an enabled camera')
+    if cam.get('backend', 'auto') not in ('auto', 'egl', 'osmesa', 'cpu'):
+        raise ValueError('camera backend must be auto, egl, osmesa, or cpu')
     if cam.get('enabled'):
         for key in ('width', 'height', 'max_recorded_frames'):
             value = cam.get(key, 10000)

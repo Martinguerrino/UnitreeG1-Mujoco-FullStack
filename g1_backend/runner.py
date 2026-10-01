@@ -142,12 +142,12 @@ def run_experiment(source):
         process = ctx.Process(
             target=run_simulator,
             args=(config, locomotion.get_action().q, child, stop, release),
-            daemon=True,
+            daemon=False,
         )
         process.start()
         child.close()
-        if not pipe.poll(20):
-            raise TimeoutError('Simulator did not start within 20 seconds')
+        if not pipe.poll(210):
+            raise TimeoutError('Simulator did not start within 210 seconds')
         ready = pipe.recv()
         if 'error' in ready:
             raise RuntimeError(ready['error'])
@@ -189,6 +189,8 @@ def run_experiment(source):
                 if 'error' in incoming:
                     raise RuntimeError(incoming['error'])
                 if 'position' in incoming:
+                    if navigation:
+                        navigation.publish(incoming)
                     telemetry = incoming
                     telemetry_received_at = time.monotonic()
             elapsed = (
@@ -212,8 +214,6 @@ def run_experiment(source):
             if telemetry is None:
                 time.sleep(0.002)
                 continue
-            if navigation:
-                navigation.publish(telemetry)
             if kind == 'communication':
                 maximum_displacement = max(
                     maximum_displacement, float(state.q[19] - initial_state.q[19])
@@ -341,11 +341,7 @@ def run_experiment(source):
                     }
                 )
                 stream.write(json.dumps(row) + '\n')
-                recorder.capture(
-                    telemetry.get('sensors'),
-                    telemetry['sensor_time'],
-                    telemetry['camera_frame_id'],
-                )
+                recorder.capture_telemetry(telemetry)
             if kind == 'communication' and warmup <= elapsed < warmup + 0.5:
                 pass  # Deliberate publisher outage to exercise simulator watchdog.
             elif kind == 'communication' and warmup + 0.5 <= elapsed < warmup + 1.0:
@@ -450,7 +446,7 @@ def run_experiment(source):
                         pipe.recv()
                     except EOFError:
                         break
-            process.join(timeout=1)
+            process.join(timeout=6)
             if process.is_alive():
                 process.terminate()
                 process.join(timeout=2)
@@ -474,6 +470,7 @@ def run_experiment(source):
                         'simulator_cpu_percent',
                         'simulator_peak_ram_bytes',
                         'render_fps',
+                        'camera_renderer',
                     )
                 }
             )

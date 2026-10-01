@@ -47,6 +47,21 @@ class SensorRecorder:
             )
             self.saved += 1
 
+    def capture_telemetry(self, telemetry):
+        # Independent sensors may complete out of capture-time order. Only
+        # camera modalities and their capture time belong in camera recordings.
+        sensors = {
+            name: value for name, value in (telemetry.get('sensors') or {}).items()
+            if name in ('rgb', 'depth') or name.endswith(('_rgb', '_depth'))
+        }
+        if not sensors:
+            return
+        timestamp = telemetry.get('camera_time')
+        if timestamp is None:
+            times = telemetry.get('sensor_times', {})
+            timestamp = times.get(next(iter(sensors)), telemetry.get('sensor_time'))
+        self.capture(sensors, timestamp, telemetry['camera_frame_id'])
+
     def close(self):
         if self.index:
             self.index.close()

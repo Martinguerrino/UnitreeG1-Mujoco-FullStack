@@ -13,13 +13,15 @@ from launch.actions import (
 from launch.event_handlers import OnProcessExit
 from launch.events import Shutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def prepare(context):
+    ideal = LaunchConfiguration('ideal').perform(context) == 'true'
     mode = LaunchConfiguration('mode').perform(context)
     if mode not in ('mapping', 'localization'):
         raise ValueError('mode must be mapping or localization')
@@ -27,6 +29,7 @@ def prepare(context):
     if mode == 'localization' and not Path(map_path).is_file():
         raise ValueError('localization requires map:=/absolute/path/map.yaml')
     nav = Path(get_package_share_directory('nav2_bringup'))
+    description = Path(get_package_share_directory('g1_description'))
     params = yaml.safe_load((nav / 'params/nav2_params.yaml').read_text())
     # Start from defaults of the installed Jazzy release so plugin lists match.
     for node in params.values():
@@ -84,23 +87,81 @@ def prepare(context):
                                      dir=directory, delete=False) as handle:
         yaml.safe_dump(params, handle)
         params_path = handle.name
+    rviz_config = yaml.safe_load((nav / 'rviz/nav2_default_view.rviz').read_text())
+    displays = rviz_config['Visualization Manager']['Displays']
+    for display in displays:
+        if display.get('Name') == 'RobotModel':
+            display['Enabled'] = display['Value'] = True
+            display['Description Topic']['Durability Policy'] = 'Transient Local'
+    displays.extend([
+        {
+            'Class': 'rviz_default_plugins/PointCloud2', 'Name': 'MID-360 3D',
+            'Enabled': True, 'Value': True, 'Style': 'Points', 'Size (Pixels)': 2,
+            'Color Transformer': 'AxisColor', 'Axis': 'Z', 'Decay Time': 0.3,
+            'Topic': {'Value': '/mid360/points', 'Depth': 5,
+                      'Reliability Policy': 'Best Effort',
+                      'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
+        },
+        {
+            'Class': 'rviz_default_plugins/Image', 'Name': 'D435i RGB',
+            'Enabled': True, 'Value': True, 'Normalize Range': True,
+            'Topic': {'Value': '/camera/color/image_raw', 'Depth': 5,
+                      'Reliability Policy': 'Best Effort',
+                      'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
+        },
+        {
+            'Class': 'rviz_default_plugins/Image', 'Name': 'D435i Depth',
+            'Enabled': True, 'Value': True, 'Normalize Range': True,
+            'Min Value': 0.0, 'Max Value': 10.0,
+            'Topic': {'Value': '/camera/depth/image_rect_raw', 'Depth': 5,
+                      'Reliability Policy': 'Best Effort',
+                      'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
+        },
+    ])
+    rviz_config['Visualization Manager']['Views']['Current'] = {
+        'Class': 'rviz_default_plugins/Orbit', 'Name': 'G1 3D', 'Distance': 7.0,
+        'Pitch': 0.55, 'Yaw': 0.8, 'Target Frame': 'base_link',
+        'Focal Point': {'X': 0.0, 'Y': 0.0, 'Z': 0.8},
+    }
+    rviz_path = directory / 'g1_navigation.rviz'
+    rviz_path.write_text(yaml.safe_dump(rviz_config, sort_keys=False))
+    robot_description = {
+        'robot_description': ParameterValue(
+            Command([FindExecutable(name='xacro'), ' ',
+                     str(description / 'urdf/g1_29dof.urdf.xacro')]),
+            value_type=str,
+        )
+    }
     simulator = ExecuteProcess(
         cmd=[LaunchConfiguration('sim_python'), str(ROOT / 'scripts/navigation_sim.py'),
-             '--viewer', LaunchConfiguration('viewer')],
+             '--viewer', LaunchConfiguration('viewer'),
+             '--ideal', LaunchConfiguration('ideal')],
         output='screen',
     )
     bridge = ExecuteProcess(
         cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_bridge.py')], output='screen'
     )
-    actions = [bridge, simulator]
-    # The simulator owns the DDS-side lifecycle.  Shutting down on both its
-    # exit and the bridge's exit races two ROS shutdown requests and emits a
-    # misleading "ROS adapter not running" error during otherwise normal
-    # cleanup.
-    actions.append(RegisterEventHandler(OnProcessExit(
-        target_action=simulator,
-        on_exit=[EmitEvent(event=Shutdown(reason='Navigation simulation stopped'))],
-    )))
+    actions = [
+        bridge,
+        simulator,
+        Node(package='robot_state_publisher', executable='robot_state_publisher',
+             parameters=[robot_description, {'use_sim_time': True}], output='screen'),
+    ]
+    # Either essential process exiting must stop the stack. Emit shutdown only
+    # once so simultaneous exits do not race ROS cleanup.
+    shutdown_requested = False
+
+    def stop_navigation(event, context):
+        nonlocal shutdown_requested
+        if shutdown_requested or context.is_shutdown:
+            return []
+        shutdown_requested = True
+        return [EmitEvent(event=Shutdown(reason='Navigation process stopped'))]
+
+    for process in (simulator, bridge):
+        actions.append(RegisterEventHandler(OnProcessExit(
+            target_action=process, on_exit=stop_navigation,
+        )))
     if mode == 'mapping':
         slam = Path(get_package_share_directory('slam_toolbox'))
         actions.append(IncludeLaunchDescription(
@@ -130,7 +191,8 @@ def prepare(context):
     if LaunchConfiguration('rviz').perform(context) == 'true':
         actions.append(TimerAction(period=8.0, actions=[
             Node(package='rviz2', executable='rviz2',
-                 arguments=['-d', str(nav / 'rviz/nav2_default_view.rviz')],
+                 arguments=['-d', str(nav / 'rviz/nav2_default_view.rviz') if ideal
+                            else str(rviz_path)],
                  parameters=[{'use_sim_time': True}])
         ]))
     return actions
@@ -142,6 +204,7 @@ def generate_launch_description():
         DeclareLaunchArgument('map', default_value=''),
         DeclareLaunchArgument('viewer', default_value='true'),
         DeclareLaunchArgument('rviz', default_value='true'),
+        DeclareLaunchArgument('ideal', default_value='false'),
         DeclareLaunchArgument('sim_python', default_value=
                               '/home/martin/miniforge3/envs/mujoco-unitree/bin/python'),
         OpaqueFunction(function=prepare),

@@ -188,3 +188,179 @@ def test_turn_assist_releases_when_nav2_starts_forward_path_following():
         )
     finally:
         transport.close()
+
+
+def test_sensor_mounts_match_urdf_and_camera_optical_axis(tmp_path):
+    import xml.etree.ElementTree as ET
+
+    config = load_config(ROOT / 'configs/experiments/navigation.yaml')
+    urdf = ET.parse(ROOT / 'src/g1_description/urdf/g1_29dof.urdf.xacro')
+    lidar = config['navigation']['lidar']
+    camera = config['camera']['views'][0]
+    for sensor, joint in ((lidar, 'mid360_joint'), (camera, 'd435_joint')):
+        origin = urdf.find(f".//joint[@name='{joint}']/origin")
+        np.testing.assert_allclose(sensor['position'], np.fromstring(origin.get('xyz'), sep=' '))
+        if sensor is lidar:
+            np.testing.assert_allclose(sensor['rpy'], np.fromstring(origin.get('rpy'), sep=' '))
+    text, scene = model_xml(config)
+    (tmp_path / 'g1_29dof.xml').write_text(text)
+    (tmp_path / 'scene.xml').write_text(scene)
+    model = mujoco.MjModel.from_xml_path(str(tmp_path / 'scene.xml'))
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    camera_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, 'd435i')
+    body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, 'torso_link')
+    pitch = float(urdf.find(".//joint[@name='d435_joint']/origin").get('rpy').split()[1])
+    link_rotation = np.array([[math.cos(pitch), 0, math.sin(pitch)], [0, 1, 0],
+                              [-math.sin(pitch), 0, math.cos(pitch)]])
+    # ROS optical x=right, y=down, z=forward; MuJoCo x=right,y=up,z=back.
+    optical_rotation = np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]])
+    expected = data.xmat[body_id].reshape(3, 3) @ link_rotation @ optical_rotation
+    actual = data.cam_xmat[camera_id].reshape(3, 3) @ np.diag([1, -1, -1])
+    np.testing.assert_allclose(actual, expected, atol=1e-8)
+
+
+def test_projection_bins_world_returns_and_rejects_ground():
+    from g1_backend.navigation import project_scan
+
+    cfg = {'horizontal_samples': 4, 'min_range': 0.05, 'max_range': 20,
+               'scan_min_height': 0.15, 'scan_max_height': 1.5}
+    cloud = np.array([[3, 0, 1], [2, 0, 0.4], [1, 0, 0], [0, 4, 1], [0, -1, 2]])
+    assert project_scan(cloud, [0, 0, 0.8], 0, cfg) == [None, None, 2.0, 4.0]
+    assert project_scan(cloud, [0, 0, 0.8], math.pi / 2, cfg) == [None, 2.0, 4.0, None]
+
+
+def test_lidar_respects_self_occlusion_and_uses_planar_distance():
+    model = mujoco.MjModel.from_xml_string('''<mujoco><worldbody>
+      <body name="torso"><freejoint/><geom type="sphere" size="0.1" pos="0 0 -1"/>
+        <body name="arm"><geom type="box" size="0.1 0.3 0.3" pos="1 0 0"/></body>
+      </body>
+      <geom group="2" type="box" pos="3 0 1" size="0.1 5 2"/>
+    </worldbody></mujoco>''')
+    data = mujoco.MjData(model)
+    data.qpos[2] = 1
+    mujoco.mj_forward(model, data)
+    cfg = {'body': 'torso', 'position': [0, 0, 0], 'rpy': [0, 0, 0],
+               'horizontal_samples': 4, 'vertical_angles_deg': [0], 'min_range': 0.05, 'max_range': 20}
+    _cloud, scan = lidar_scan(model, data, cfg)
+    assert scan[2] is None  # Arm blocks the wall; it is not transparent.
+    data.qpos[1] = 2  # Move arm and sensor together; remains occluded.
+    mujoco.mj_forward(model, data)
+    assert lidar_scan(model, data, cfg)[1][2] is None
+    cfg['position'] = [0, 1, 0]
+    cfg['rpy'] = [math.pi, 0.1, 0]  # Tilt / inversion must not reverse scan bins.
+    _cloud, scan = lidar_scan(model, data, cfg)
+    assert np.isclose(scan[2], math.hypot(2.9, 1.0), atol=1e-6)
+
+
+def test_rgb_and_depth_render_same_frontal_surface():
+    model = mujoco.MjModel.from_xml_string('''<mujoco><visual>
+      <global offwidth="160" offheight="120"/></visual><worldbody>
+      <camera name="rgbd" pos="0 0 1" quat="0.5 0.5 -0.5 -0.5" fovy="58"/>
+      <light pos="0 0 3"/>
+      <geom type="box" pos="3 0 1" size="0.1 0.5 0.5" rgba="1 0 0 1"/>
+    </worldbody></mujoco>''')
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    with mujoco.Renderer(model, height=120, width=160) as renderer:
+        renderer.update_scene(data, camera='rgbd')
+        rgb = renderer.render().copy()
+        renderer.enable_depth_rendering()
+        depth = renderer.render().copy()
+    red = (rgb[:, :, 0].astype(float) > 2*rgb[:, :, 1]+20)
+    assert red.sum() > 500
+    np.testing.assert_allclose(depth[red], 2.9, atol=1e-4)
+    fy = 120/(2*math.tan(math.radians(58)/2))
+    v, u = np.where(red)
+    x = (u-79.5)*depth[red]/fy
+    y = (v-59.5)*depth[red]/fy
+    assert np.max(np.abs(x)) <= 0.52
+    assert np.max(np.abs(y)) <= 0.52
+
+
+def test_urdf_torso_chain_matches_mujoco_with_tilt_and_waist(tmp_path):
+    import xml.etree.ElementTree as ET
+
+    config = load_config(ROOT / 'configs/experiments/navigation.yaml')
+    model_text, scene_text = model_xml(config)
+    (tmp_path / 'g1_29dof.xml').write_text(model_text)
+    (tmp_path / 'scene.xml').write_text(scene_text)
+    model = mujoco.MjModel.from_xml_path(str(tmp_path / 'scene.xml'))
+    data = mujoco.MjData(model)
+    data.qpos[:3] = [1, -2, 0.85]
+    data.qpos[3:7] = [0.9, 0.1, -0.15, 0.3]
+    data.qpos[3:7] /= np.linalg.norm(data.qpos[3:7])
+    for name, angle in [('waist_yaw_joint', 0.3), ('waist_roll_joint', -0.1),
+                        ('waist_pitch_joint', 0.2)]:
+        joint_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+        data.qpos[model.jnt_qposadr[joint_id]] = angle
+    mujoco.mj_forward(model, data)
+    urdf = ET.parse(ROOT / 'src/g1_description/urdf/g1_29dof.urdf.xacro')
+    joints = {joint.find('child').get('link'): joint for joint in urdf.findall('joint')}
+    chain = []
+    link = 'torso_link'
+    while link != 'pelvis':
+        chain.append(joints[link])
+        link = joints[link].find('parent').get('link')
+    pelvis = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, 'pelvis')
+    transform = np.eye(4)
+    transform[:3, :3] = data.xmat[pelvis].reshape(3, 3)
+    transform[:3, 3] = data.xpos[pelvis]
+    for joint in reversed(chain):
+        origin = joint.find('origin')
+        local = np.eye(4)
+        local[:3, 3] = np.fromstring(origin.get('xyz'), sep=' ')
+        angles = np.fromstring(origin.get('rpy'), sep=' ')
+        rotation = np.eye(3)
+        for axis, angle in reversed(list(zip(np.eye(3), angles))):
+            quat = np.empty(4)
+            matrix = np.empty(9)
+            mujoco.mju_axisAngle2Quat(quat, axis, angle)
+            mujoco.mju_quat2Mat(matrix, quat)
+            rotation = rotation @ matrix.reshape(3, 3)
+        local[:3, :3] = rotation
+        transform = transform @ local
+        if joint.get('type') != 'fixed':
+            joint_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, joint.get('name'))
+            angle = data.qpos[model.jnt_qposadr[joint_id]]
+            quat = np.empty(4)
+            matrix = np.empty(9)
+            mujoco.mju_axisAngle2Quat(quat, np.fromstring(joint.find('axis').get('xyz'), sep=' '), angle)
+            mujoco.mju_quat2Mat(matrix, quat)
+            transform[:3, :3] = transform[:3, :3] @ matrix.reshape(3, 3)
+    torso = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, 'torso_link')
+    np.testing.assert_allclose(transform[:3, 3], data.xpos[torso], atol=1e-8)
+    np.testing.assert_allclose(transform[:3, :3], data.xmat[torso].reshape(3, 3), atol=1e-8)
+
+
+def test_cloud_transport_without_camera_keeps_acquisition_time():
+    import io
+    import struct
+
+    receiver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    receiver.bind(('127.0.0.1', 0))
+    receiver.settimeout(1)
+    transport = NavigationTransport({'command_port': 0,
+                                     'sensor_port': receiver.getsockname()[1]})
+    row = {'position': [0, 0, 0.8], 'quaternion': [1, 0, 0, 0],
+           'linear_velocity': [0, 0, 0], 'scan': None, 'scan_time': None,
+           'torso_position_base': [0, 0, 0], 'torso_quaternion_base': [1, 0, 0, 0],
+           'joint_names': [], 'joint_positions': [], 'camera_frame_id': 0,
+           'sensors': {'mid360_points': np.ones((2, 3), np.float32)},
+           'sensor_time': 9.0}
+    sequences = []
+    try:
+        for t in (1.0, 1.1):
+            row.update(time=t+0.02, sensor_times={'mid360_points': t})
+            transport.publish(row)
+            packet, _ = receiver.recvfrom(65535)
+            sequence, index, count = struct.unpack('!IHH', packet[:8])
+            sequences.append(sequence)
+            assert (index, count) == (0, 1)
+            with np.load(io.BytesIO(packet[8:]), allow_pickle=False) as values:
+                assert float(values['time']) == t
+                np.testing.assert_array_equal(values['mid360_points'], row['sensors']['mid360_points'])
+        assert sequences[1] > sequences[0]
+    finally:
+        transport.close()
+        receiver.close()

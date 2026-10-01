@@ -174,3 +174,37 @@ def test_video_rejects_depth_only_without_creating_fake_rgb(tmp_path):
     with pytest.raises(ValueError, match='RGB recording'):
         encode_video(tmp_path)
     assert not (tmp_path / 'video.mp4').exists()
+
+
+def test_camera_recorder_ignores_lidar_arriving_out_of_time_order(tmp_path):
+    recorder = SensorRecorder(tmp_path, {'record': True})
+    rgb = np.zeros((8, 8, 3), dtype=np.uint8)
+    points = np.ones((4, 3), dtype=np.float32)
+    recorder.capture_telemetry({
+        'sensors': {'d435i_rgb': rgb, 'mid360_points': points},
+        'sensor_time': .4, 'camera_time': .2, 'camera_frame_id': 1,
+        'sensor_times': {'d435i_rgb': .2, 'mid360_points': .4},
+    })
+    # A later-arriving LiDAR capture is older than the last camera capture.
+    recorder.capture_telemetry({
+        'sensors': {'mid360_points': points}, 'sensor_time': .1,
+        'camera_time': .2, 'camera_frame_id': 1,
+    })
+    recorder.capture_telemetry({
+        'sensors': {'d435i_rgb': rgb, 'mid360_points': points},
+        'sensor_time': .1, 'camera_time': .3, 'camera_frame_id': 2,
+    })
+    assert recorder.close()['observed_frames'] == 2
+    with np.load(tmp_path / 'camera_latest.npz') as frame:
+        assert frame['timestamp'] == .3
+        assert 'd435i_rgb' in frame
+        assert 'mid360_points' not in frame
+
+
+def test_camera_recorder_uses_modality_time_for_legacy_telemetry(tmp_path):
+    recorder = SensorRecorder(tmp_path, {'record': False})
+    recorder.capture_telemetry({
+        'sensors': {'rgb': np.zeros((2, 2, 3), dtype=np.uint8)},
+        'sensor_time': 5.0, 'sensor_times': {'rgb': 1.0}, 'camera_frame_id': 1,
+    })
+    assert recorder.last_timestamp == 1.0

@@ -1,15 +1,17 @@
 # Nav2 y SLAM en el escenario Maxwell
 
-Integración inicial, pendiente de validar extremo a extremo con Nav2 instalado.
-La locomoción larga tampoco tiene aún una validación de estabilidad completa.
+Nav2 y SLAM están instalados en el entorno local. El 2026-10-01 se validó
+una meta corta `(0.7, 0)` en modo normal y en `--ideal`, con MuJoCo, puente ROS,
+robot_state_publisher, SLAM y Nav2 sin ventanas. Esto no valida todavía una
+batería completa de recorridos ni la estabilidad de locomoción prolongada.
 
 Validación local del 2026-09-19: 25 tests existentes y 3 tests nuevos pasan.
 `scripts/check_navigation_bridge.py` verificó MuJoCo + DDS + ROS con un comando
 real de `/cmd_vel`: desplazamiento de 0.2796 m, cero caídas/watchdogs y recepción
 de 69 escaneos y 328 mensajes de odometría/reloj. Reporte físico:
 `results/navigation/20260919T203402_820d64a7/metrics.json`.
-No incluye planificación Nav2 ni mapeo SLAM: falta instalar esos paquetes
-(la instalación automática se detuvo porque sudo requiere contraseña).
+Esa prueba histórica no incluía planificación Nav2 ni mapeo SLAM.
+La instalación y la prueba integrada posteriores se describen arriba.
 
 El flujo es RViz → NavigateToPose → planificador Nav2 → controlador Nav2 →
 cmd_vel → política RL Lab original → LowCmd DDS → MuJoCo. Nav2 calcula los caminos;
@@ -32,10 +34,13 @@ esos tópicos. La configuración reproducible de resolución, frecuencia, montaj
 capas verticales y alcance está en `configs/experiments/navigation.yaml`.
 
 SLAM Toolbox construye `/map` y publica `map → odom`. El puente publica
-`odom → base_link → laser`, `/odom`, `/clock` y `/scan`. Todos los nodos Nav2
+`odom → base_link → pelvis`, `/joint_states`, `/odom`, `/clock` y `/scan`.
+`robot_state_publisher` resuelve pelvis → torso → sensores con el URDF.
+`base_link → laser` es un frame horizontal virtual a 0.78 m sobre el suelo;
+la nube conserva su frame físico `mid360_link`. Todos los nodos Nav2
 y SLAM usan tiempo simulado. ROS usa Python del sistema y FastDDS en dominio
-43; SDK2 permanece en el proceso Conda y dominio 42. Los dos procesos se
-comunican por UDP exclusivamente en 127.0.0.1 (19420/19421). Ejecutar una sola
+43; SDK2 permanece en el proceso Conda y dominio 44. Los dos procesos se
+comunican por UDP exclusivamente en 127.0.0.1 (19420/19421 y 19422 para sensores). Ejecutar una sola
 instancia; no ejecutar otro test DDS simultáneamente.
 
 ## Instalación y arranque
@@ -161,3 +166,108 @@ aporta SLAM durante mapping o AMCL con mapa guardado.
   no demuestran navegación autónoma exitosa.
 
 Referencia: https://docs.nav2.org/jazzy/tutorials/general_tutorials/navigation2_with_slam/navigation2_with_slam/
+
+## Reparación de sensores 3D y evidencia (2026-10-01)
+
+Las posiciones y rotaciones anteriores del MID-360 y la D435i diferían del
+URDF cargado por ROS. El MID-360 estaba invertido 180° respecto de ese URDF.
+Además, se publicaba una fila inclinada de rayos como `LaserScan` planar,
+con distancias oblicuas y un frame ligado al sensor. Eso alteraba los lados,
+la altura y las posiciones que SLAM/Nav2 atribuían a los obstáculos.
+El enlace base/pelvis también omitía altura y balanceo del cuerpo.
+
+Ahora el montaje coincide con el URDF del repositorio. La cámara compone
+la inclinación `d435_joint` con la convención óptica ROS y MuJoCo; RGB y
+profundidad comparten pose, dimensiones, calibración y tiempo de adquisición.
+La pose del pelvis conserva altura, roll y pitch; las articulaciones llevan
+el mismo timestamp que la pose. Los poses cartesianos de MuJoCo se actualizan
+antes de muestrear para evitar combinar qpos nuevo con xmat/xpos anteriores.
+
+El scan se construye con todos los retornos reales del LiDAR: transformación
+al mundo, selección de altura 0.15–1.50 m, distancia XY desde el centro del
+robot y mínimo por sector angular en un frame horizontal. Las capas hacia
+abajo llegan a -45° para observar muebles por debajo del montaje. La nube
+publicada conserva también suelo y otros retornos fuera de la banda del scan.
+Los meshes de colisión del robot ocluyen rayos; esos impactos propios se
+filtran sin buscar artificialmente otro objeto detrás del cuerpo.
+Los objetos que no reciben un rayo no se consideran detectados: esto sigue
+siendo un sensor aproximado, sin el patrón físico completo del MID-360.
+
+La nube se publica a su propia frecuencia incluso con cámara deshabilitada.
+Cada modalidad conserva su tiempo de adquisición. El receptor UDP ya no
+elimina una imagen parcial al completar una nube más nueva y acota los frames
+incompletos (32 secuencias, expiración 0.5 s). Imágenes y nube usan QoS de
+sensores; scan mantiene QoS compatible con Nav2. Se procesan pose/articulaciones
+antes de imágenes/nube. Durante ray casting/renderizado la física está pausada,
+pero se permite publicar LowState DDS para evitar interrupciones por timeout.
+
+Auditorías de 70 s de pared, seed 0, sin MuJoCo viewer ni RViz:
+
+| Evidencia | Normal | Ideal |
+|---|---:|---:|
+| Scans recibidos | 372 | 531 |
+| Frecuencia scan en tiempo simulado | 9.885 Hz | 9.919 Hz |
+| Nubes / RGB / profundidad recibidos | 372 / 372 / 372 | deshabilitados |
+| Pares RGB-D con igual timestamp, frame y dimensiones | 372 | — |
+| Mensajes sin TF al tiempo de adquisición | 0 | 0 |
+| Meta Nav2 `(0.7, 0)` | SUCCEEDED | SUCCEEDED |
+| Obstáculos observados en mapa y costmaps | sí | sí |
+
+Reportes: `results/navigation/sensor_audit_normal.json` y
+`results/navigation/sensor_audit_ideal.json`. El ensayo MuJoCo–DDS–ROS de 6 s
+registró 0.361 m de avance, cero caídas y cero watchdogs en
+`results/navigation/20261001T165625_9ac4442d/metrics.json`.
+Las pruebas de regresión verifican montaje, cadena URDF con cintura articulada
+y pelvis inclinado, proyección, autooclusiones, RGB-D renderizado, TF y
+reensamblado UDP. No hubo avisos de cola de sensores llena en las auditorías.
+Los conteos iguales no garantizan ausencia de pérdidas bajo toda carga.
+
+Para repetir la auditoría sobre una sesión arrancada:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+ROS_DOMAIN_ID=43 /usr/bin/python3 scripts/check_navigation_sensors.py \
+  --duration 70 --goal 0.7 0 --output results/navigation/sensor_audit_normal.json
+# Con navigation.sh --ideal, agregar --ideal al auditor.
+```
+
+Esta comparación valida una meta y la integración de sensores, TF, SLAM y
+costmaps. No prueba mapas idénticos (las alturas observadas difieren),
+recorridos largos, orientación final arbitraria, obstáculos muy bajos,
+AMCL ni rendimiento con ambas ventanas abiertas. El modo normal sigue siendo
+más lento: se recibieron menos scans en el mismo intervalo de pared.
+El error de cierre `Cannot shutdown a ROS adapter that is not running`
+también volvió a aparecer al interrumpir el launch; corresponde al pendiente
+separado de arranque/cierre.
+
+### Sensores en procesos separados
+
+La física y el puente DDS ejecutan el simulador; la cámara RGB-D y el LiDAR
+usan dos procesos adicionales con sus propias instancias de `MjModel`/`MjData`.
+Reciben copias del estado completo de integración por memoria compartida.
+Cada entrada y salida conserva únicamente el último cuadro pendiente: cuando
+un sensor se retrasa, se reemplazan los pendientes sin acumular una cola.
+Los tiempos `sensor_times` y `scan_time` corresponden al estado capturado,
+no al momento en que termina el cálculo. El grabador usa `camera_time` y
+solo guarda RGB/profundidad; los resultados tardíos del LiDAR no modifican
+la cronología de la cámara.
+
+`camera.backend` admite `auto` (predeterminado), `egl`, `osmesa` y `cpu`.
+En `auto` se intenta EGL primero y, si falla la inicialización, OSMesa y luego
+Mesa/EGL sin superficie con llvmpipe. `cpu` fuerza las alternativas de software.
+OSMesa requiere `libosmesa6`; la alternativa Mesa/EGL usa el controlador Mesa
+instalado y no necesita OSMesa. Si ninguna alternativa puede inicializarse,
+el experimento informa el error. La telemetría `camera_renderer` identifica el
+backend, el dispositivo y la aceleración efectiva (`gpu` o `cpu`). La cámara
+selecciona su backend independientemente del visor interactivo GLFW.
+
+La separación evita esperar rayos o renders dentro del bucle físico. No garantiza
+por sí sola eliminar todos los timeouts: la transferencia de cuadros, el visor
+y la carga general del equipo siguen consumiendo tiempo. El FPS reportado cuenta
+los cuadros recibidos; los cuadros reemplazados no se cuentan.
+
+El arranque también libera los puertos UDP 19420/19421/19422 si pertenecen a
+una ejecución anterior de `navigation_bridge.py` o `navigation_sim.py` de este
+workspace y usuario. Si pertenecen a otro proceso, cancela el arranque sin
+cerrarlo. La salida del puente o del simulador solicita un único cierre del
+stack para evitar continuar sin uno de los procesos esenciales.

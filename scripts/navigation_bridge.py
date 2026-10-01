@@ -12,8 +12,9 @@ import rclpy
 from geometry_msgs.msg import TransformStamped, Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from rosgraph_msgs.msg import Clock
-from sensor_msgs.msg import CameraInfo, Image, LaserScan, PointCloud2, PointField
+from sensor_msgs.msg import CameraInfo, Image, JointState, LaserScan, PointCloud2, PointField
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 
 
@@ -37,23 +38,21 @@ class Bridge(Node):
         self.clock = self.create_publisher(Clock, '/clock', 10)
         self.odom = self.create_publisher(Odometry, '/odom', 10)
         self.scan = self.create_publisher(LaserScan, '/scan', 10)
-        self.points = self.create_publisher(PointCloud2, '/mid360/points', 10)
-        self.color = self.create_publisher(Image, '/camera/color/image_raw', 10)
-        self.depth = self.create_publisher(Image, '/camera/depth/image_rect_raw', 10)
+        self.points = self.create_publisher(PointCloud2, '/mid360/points', qos_profile_sensor_data)
+        self.color = self.create_publisher(Image, '/camera/color/image_raw', qos_profile_sensor_data)
+        self.depth = self.create_publisher(Image, '/camera/depth/image_rect_raw', qos_profile_sensor_data)
         self.camera_info = self.create_publisher(CameraInfo, '/camera/color/camera_info', 10)
+        self.joint_states = self.create_publisher(JointState, '/joint_states', 10)
         self.tf = TransformBroadcaster(self)
         self.static_tf = StaticTransformBroadcaster(self)
         transforms = []
-        for child, xyz, quaternion in (
-            ('mid360_link', (0.0002835, 0.00003, 0.428434),
-             (0.0, 0.9996733, 0.0, -0.0255576)),
-            ('laser', (0.0002835, 0.00003, 0.428434),
-             (0.0, 0.9996733, 0.0, -0.0255576)),
-            ('d435i_color_optical_frame', (0.0576235, 0.01753, 0.42987),
+        for parent, child, xyz, quaternion in (
+            ('base_link', 'laser', (0.0, 0.0, 0.78), (1.0, 0.0, 0.0, 0.0)),
+            ('d435_link', 'd435i_color_optical_frame', (0.0, 0.0, 0.0),
              (0.5, 0.5, -0.5, -0.5)),
         ):
             sensor = TransformStamped()
-            sensor.header.frame_id = 'torso_link'
+            sensor.header.frame_id = parent
             sensor.child_frame_id = child
             sensor.transform.translation.x = xyz[0]
             sensor.transform.translation.y = xyz[1]
@@ -78,26 +77,26 @@ class Bridge(Node):
         self.socket.sendto(json.dumps({'velocity': values}).encode(), ('127.0.0.1', 19421))
 
     def poll(self):
-        self.poll_sensors()
         for _ in range(100):
             try:
                 payload, _ = self.socket.recvfrom(65535)
             except BlockingIOError:
-                return
+                break
             row = json.loads(payload)
             self.last_received = time.monotonic()
             timestamp = stamp(row['time'])
             self.clock.publish(Clock(clock=timestamp))
-            w, x, y, z = row['quaternion']
+            # JSON numbers may be integers; ROS C serialization requires floats.
+            w, x, y, z = map(float, row['quaternion'])
             yaw = math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
             odom = Odometry()
             odom.header.stamp = timestamp
             odom.header.frame_id = 'odom'
             odom.child_frame_id = 'base_link'
-            odom.pose.pose.position.x, odom.pose.pose.position.y = row['position'][:2]
+            odom.pose.pose.position.x, odom.pose.pose.position.y = map(float, row['position'][:2])
             odom.pose.pose.orientation.z = math.sin(yaw / 2)
             odom.pose.pose.orientation.w = math.cos(yaw / 2)
-            vx, vy = row['linear_velocity'][:2]
+            vx, vy = map(float, row['linear_velocity'][:2])
             odom.twist.twist.linear.x = math.cos(yaw) * vx + math.sin(yaw) * vy
             odom.twist.twist.linear.y = -math.sin(yaw) * vx + math.cos(yaw) * vy
             if self.previous_pose is not None:
@@ -108,25 +107,28 @@ class Bridge(Node):
                     odom.twist.twist.angular.z = math.atan2(math.sin(delta), math.cos(delta)) / dt
             self.previous_pose = (row['time'], yaw)
             self.odom.publish(odom)
+            joints = JointState()
+            joints.header.stamp = timestamp
+            joints.name = row['joint_names']
+            joints.position = list(map(float, row['joint_positions']))
+            self.joint_states.publish(joints)
             transform = TransformStamped()
             transform.header = odom.header
             transform.child_frame_id = 'base_link'
             transform.transform.translation.x = odom.pose.pose.position.x
             transform.transform.translation.y = odom.pose.pose.position.y
             transform.transform.rotation = odom.pose.pose.orientation
-            self.tf.sendTransform(transform)
-            torso = TransformStamped()
-            torso.header = odom.header
-            torso.header.frame_id = 'base_link'
-            torso.child_frame_id = 'torso_link'
-            (torso.transform.translation.x, torso.transform.translation.y,
-             torso.transform.translation.z) = row['torso_position_base']
-            qw, qx, qy, qz = row['torso_quaternion_base']
-            torso.transform.rotation.w = qw
-            torso.transform.rotation.x = qx
-            torso.transform.rotation.y = qy
-            torso.transform.rotation.z = qz
-            self.tf.sendTransform(torso)
+            pelvis = TransformStamped()
+            pelvis.header.stamp = timestamp
+            pelvis.header.frame_id = 'base_link'
+            pelvis.child_frame_id = 'pelvis'
+            pelvis.transform.translation.z = float(row['position'][2])
+            # Remove only yaw; retain the physical pelvis roll and pitch.
+            c, s = math.cos(yaw / 2), math.sin(yaw / 2)
+            (pelvis.transform.rotation.w, pelvis.transform.rotation.x,
+             pelvis.transform.rotation.y, pelvis.transform.rotation.z) = (
+                c*w + s*z, c*x + s*y, c*y - s*x, c*z - s*w)
+            self.tf.sendTransform([transform, pelvis])
             if row['scan'] is not None and row['scan_time'] != self.last_scan:
                 self.last_scan = row['scan_time']
                 scan = LaserScan()
@@ -137,8 +139,10 @@ class Bridge(Node):
                 scan.angle_max = scan.angle_min + (len(row['scan']) - 1) * scan.angle_increment
                 scan.scan_time = 0.1
                 scan.range_min, scan.range_max = 0.05, 20.0
-                scan.ranges = [float('inf') if v is None else v for v in row['scan']]
+                scan.ranges = [float('inf') if v is None else float(v) for v in row['scan']]
                 self.scan.publish(scan)
+
+        self.poll_sensors()
 
     def poll_sensors(self):
         for _ in range(100):
@@ -149,16 +153,21 @@ class Bridge(Node):
             if len(packet) < 8:
                 continue
             sequence, index, count = struct.unpack('!IHH', packet[:8])
-            chunks = self.sensor_chunks.setdefault(sequence, [None] * count)
+            if not 0 < count <= 128 or index >= count:
+                continue
+            now = time.monotonic()
+            self.sensor_chunks = {key: value for key, value in self.sensor_chunks.items()
+                                  if now - value[0] < 0.5}
+            if len(self.sensor_chunks) >= 32 and sequence not in self.sensor_chunks:
+                self.sensor_chunks.pop(next(iter(self.sensor_chunks)))
+            _, chunks = self.sensor_chunks.setdefault(sequence, (now, [None] * count))
             if len(chunks) != count or index >= count:
                 self.sensor_chunks.pop(sequence, None)
                 continue
             chunks[index] = packet[8:]
             if all(chunk is not None for chunk in chunks):
                 payload = b''.join(chunks)
-                self.sensor_chunks = {
-                    key: value for key, value in self.sensor_chunks.items() if key > sequence
-                }
+                self.sensor_chunks.pop(sequence, None)
                 try:
                     with np.load(io.BytesIO(payload), allow_pickle=False) as values:
                         self.publish_sensors(values)
