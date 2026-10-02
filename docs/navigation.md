@@ -444,22 +444,43 @@ También pueden mostrarse ambas a la vez. Las visualizaciones de sensores, como
 `MID-360 3D` y `LaserScan`, tienen casillas independientes.
 
 La malla se publica como un `Marker/TRIANGLE_LIST` en `/slam/map_mesh`, en el
-mismo frame `map` que la nube. El último resultado permanece disponible para
-RViz al habilitar la casilla. Se reconstruye cuando cambia el mapa, como máximo
-cada 5 segundos de reloj real, en un nodo independiente con un trabajador PCL
-de prioridad baja. Se reemplaza por completo para respetar los cierres de bucles.
+frame `map`, con el último resultado disponible al activar la casilla de RViz.
+Ahora se genera mediante [TSDF de Open3D](https://www.open3d.org/docs/release/tutorial/pipelines/rgbd_integration.html),
+fusionando las imágenes RGB-D originales de los nodos de RTAB-Map. Usa la
+calibración de cámara, su transformación local y las poses optimizadas del grafo,
+en lugar de la nube simplificada de ocupación. Los cierres de bucle reconstruyen
+el volumen con las poses corregidas para eliminar las superficies anteriores.
 
-Se usa [triangulación local GP3 de PCL](https://pointclouds.org/documentation/tutorials/greedy_projection.html),
-con vóxeles de 8 cm, aristas de hasta 25 cm y límites de 50000 vértices/100000
-triángulos. En mapas grandes aumenta el tamaño del vóxel para mantener el límite.
-Las zonas sin suficiente información pueden quedar con huecos; no se inventan
-superficies para cerrarlos. `map_mesh.ply` conserva geometría, colores por vértice
-y coordenadas del mapa y se actualiza automáticamente junto con la visualización.
+La resolución por defecto es **3 cm**, con una banda TSDF de **9 cm** y profundidad
+entre **0.5 y 6 m**. Se actualiza como máximo cada **5 segundos de reloj real**, en
+un trabajador separado, y limita la visualización/exportación a **100000 triángulos**.
+Se conservan hasta **400 imágenes clave admitidas**; al superar ese límite se
+retiran las más antiguas y se reconstruye el volumen. Por ello la malla está
+limitada a esas observaciones, mientras que `rtabmap.db` conserva el mapa completo.
+RTAB-Map admite observaciones quieto a 2 Hz, pero TSDF solo admite tres vistas
+casi idénticas (menos de 2 cm y 0.02 rad) para limitar su peso y consumo.
 
-El instalador compila `scripts/native/cloud_mesh.cpp` usando PCL, dependencia
-ya requerida por FAST-LIO2. `navigation.sh --slam rgb-d` también compila el
-helper si falta o si cambió su código; puede prepararse por separado con
-`bash scripts/build_navigation_mesh.sh`.
+`map_mesh.ply` guarda geometría y colores por vértice, sin texturas UV.
+`map_mesh.json` registra resolución, número de imágenes, triángulos y
+reconstrucciones. Al cerrar normalmente se exporta el último grafo recibido.
+La integración reduce ruido si las poses son buenas; no corrige una odometría
+incorrecta ni completa superficies ocultas. Nav2 conserva su mapa de ocupación
+independiente de 10 cm.
+
+El instalador prepara Open3D 0.19.0 en un entorno Python local con acceso a ROS
+y compila el decodificador que utiliza el codec oficial de RTAB-Map. Para actualizar
+una instalación existente ejecutar `bash scripts/install_navigation_tsdf.sh`.
+El modo `--slam rgb-d` utiliza TSDF automáticamente y mantiene las mismas casillas
+de RViz. La triangulación PCL anterior ya no se usa para la malla RGB-D.
+
+Para ajustar resolución, frecuencia y cantidad de imágenes:
+
+```bash
+bash scripts/navigation.sh --slam rgb-d mesh_voxel_size:=0.02 mesh_update_period:=3.0 mesh_max_frames:=400
+```
+
+Vóxeles menores o más imágenes aumentan el consumo de memoria y CPU. La resolución
+del vóxel es un ajuste de reconstrucción, no una garantía de precisión de posición.
 
 Nav2 arranca cuando recibe un mapa, odometría y un `/scan` reciente, después de la
 estabilización inicial del robot. La espera de arranque admite hasta 180

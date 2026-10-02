@@ -266,9 +266,13 @@ def prepare(context):
             actions.append(engine)
         else:
             actions.append(ExecuteProcess(
-                cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_mesh.py'),
+                cmd=[str(ROOT / 'artifacts/slam/tsdf_venv/bin/python'), str(ROOT / 'scripts/navigation_mesh.py'),
                      '--ros-args', '-p', 'use_sim_time:=true',
+                     '-p', 'voxel_size:=' + LaunchConfiguration('mesh_voxel_size').perform(context),
+                     '-p', 'update_period:=' + LaunchConfiguration('mesh_update_period').perform(context),
+                     '-p', 'max_frames:=' + LaunchConfiguration('mesh_max_frames').perform(context),
                      '-p', 'output_dir:=' + str(slam_output)], output='screen',
+                additional_env={'OMP_NUM_THREADS': '1'},
             ))
             rgbd_topics = [
                 ('rgb/image', '/camera/color/image_raw'),
@@ -300,6 +304,7 @@ def prepare(context):
                              'database_path': str(slam_output / 'rtabmap.db'),
                              'wait_for_transform': 0.3, 'publish_tf': True,
                              'Rtabmap/DetectionRate': '2.0',
+                             'RGBD/LinearUpdate': '0.0', 'RGBD/AngularUpdate': '0.0',
                              'Grid/Sensor': '1', 'Grid/CellSize': '0.1',
                              'Grid/RangeMin': '0.5',
                              'Grid/FootprintLength': '0.8', 'Grid/FootprintWidth': '0.8',
@@ -312,6 +317,8 @@ def prepare(context):
                              'Grid/3D': 'true', 'map_always_update': True,
                              'cloud_output_voxelized': True}],
                 remappings=rgbd_topics + [('odom', '/odom'),
+                                         ('mapData', '/slam/map_data'),
+                                         ('get_map_data', '/slam/get_map_data'),
                                          ('cloud_map', '/slam/map_points'),
                                          ('grid_map', '/map')], output='screen',
             )
@@ -401,6 +408,12 @@ def generate_launch_description():
         DeclareLaunchArgument('slam', default_value='slam_toolbox',
                               choices=['slam_toolbox', 'lidar3d', 'rgb-d']),
         DeclareLaunchArgument('slam_output', default_value=''),
+        DeclareLaunchArgument('mesh_voxel_size', default_value='0.03',
+                              description='RGB-D TSDF voxel size in metres'),
+        DeclareLaunchArgument('mesh_update_period', default_value='5.0',
+                              description='RGB-D mesh update period in wall seconds'),
+        DeclareLaunchArgument('mesh_max_frames', default_value='400',
+                              description='Maximum retained RGB-D frames for TSDF'),
         DeclareLaunchArgument('map', default_value=''),
         DeclareLaunchArgument('viewer', default_value='true'),
         DeclareLaunchArgument('duration', default_value='3600.0'),

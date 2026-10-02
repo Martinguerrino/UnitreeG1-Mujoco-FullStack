@@ -85,5 +85,9 @@ done
 cd "$ROOT_DIR"
 if [[ "$SLAM_MODE" == rgb-d ]]; then
   bash "$ROOT_DIR/scripts/build_navigation_mesh.sh"
+  if ! "$ROOT_DIR/artifacts/slam/tsdf_venv/bin/python" -c 'import open3d' >/dev/null 2>&1; then
+    echo 'Falta Open3D para TSDF: bash scripts/install_navigation_tsdf.sh' >&2
+    exit 1
+  fi
 fi
 exec ros2 launch scripts/navigation.launch.py "${LAUNCH_ARGS[@]}"
