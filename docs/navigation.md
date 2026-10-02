@@ -530,3 +530,20 @@ captura, porque la odometría llega después del sensor. Esto evita descartar
 todos los scans y dejar al monitor de colisiones de Nav2 bloqueando el movimiento
 por falta de datos. La cola está limitada a 10 nubes y descarta las de más de
 500 ms; no se desactiva el monitor de colisiones.
+
+En RGB-D, el monitor usa el scan en su instante de captura, sin la compensación
+`base_shift_correction` que exige un TF de odometría al instante actual. La
+odometría visual llega con retraso y esa exigencia provocaba paradas por
+extrapolación futura, especialmente con RViz y MuJoCo abiertos.
+
+La grilla visual tiene un tamaño mínimo de 20 m; las zonas no observadas siguen
+siendo desconocidas y Nav2 conserva `allow_unknown`. Esto permite planificar
+destinos fuera del campo inicial de la cámara, manteniendo la detección de
+obstáculos del LiDAR. RTAB-Map filtra puntos a menos de 0.5 m y dentro de la
+huella del robot (0.8 × 0.8 m, altura 1.5 m), y limpia una huella de radio 0.4 m
+en las poses recorridas para evitar obstáculos del propio cuerpo.
+
+También se probaron destinos RGB-D con ambas interfaces abiertas: `(0.8, -0.8)`
+con yaw `-0.785`, y `(-0.6, -0.7)` con yaw `-2.28`. Ambos terminaron en
+`SUCCEEDED`. Informes: `results/navigation/rgbd_gui_goal_check.json` y
+`results/navigation/rgbd_reverse_goal_check.json`.

@@ -103,6 +103,10 @@ def prepare(context):
     params['amcl']['ros__parameters']['base_frame_id'] = 'base_link'
     if 'collision_monitor' in params:
         params['collision_monitor']['ros__parameters']['base_frame_id'] = 'base_link'
+        if slam_backend == 'rgb-d':
+            # Camera odometry describes past captures. Requiring odom at "now"
+            # for scan motion compensation stalls the monitor on every command.
+            params['collision_monitor']['ros__parameters']['base_shift_correction'] = False
     # Keep the resolved launch configuration for reproducibility.
     directory = ROOT / 'results/navigation'
     directory.mkdir(parents=True, exist_ok=True)
@@ -284,6 +288,11 @@ def prepare(context):
                              'wait_for_transform': 0.3, 'publish_tf': True,
                              'Rtabmap/DetectionRate': '2.0',
                              'Grid/Sensor': '1', 'Grid/CellSize': '0.1',
+                             'Grid/RangeMin': '0.5',
+                             'Grid/FootprintLength': '0.8', 'Grid/FootprintWidth': '0.8',
+                             'Grid/FootprintHeight': '1.5',
+                             'GridGlobal/FootprintRadius': '0.4',
+                             'GridGlobal/MinSize': '20.0',
                              'Grid/RangeMax': '10.0', 'Grid/MaxObstacleHeight': '1.5',
                              'Grid/MinGroundHeight': '-0.1', 'Grid/MaxGroundHeight': '0.15',
                              'Grid/NormalsSegmentation': 'false',
