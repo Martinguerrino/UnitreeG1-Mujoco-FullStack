@@ -27,9 +27,25 @@ if __name__ == '__main__':
     parser.add_argument('--duration', type=float, default=3600.0)
     parser.add_argument('--dexterity', choices=['claw', 'hand'], default='hand')
     parser.add_argument('--camera-fps', type=float, default=10.0)
+    parser.add_argument('--external-turn-assist', choices=['true', 'false'], default='false')
+    parser.add_argument('--initial-x', type=float, default=0.0)
+    parser.add_argument('--initial-y', type=float, default=0.0)
+    parser.add_argument('--initial-yaw', type=float, default=0.0)
+    parser.add_argument('--scene', default='')
     args = parser.parse_args()
     config = load_config(ROOT / 'configs/experiments/navigation.yaml')
     config['robot']['dexterity'] = args.dexterity
+    config['robot']['initial_position'][:2] = [args.initial_x, args.initial_y]
+    config['robot']['initial_yaw'] = args.initial_yaw
+    if args.scene:
+        scene = Path(args.scene).expanduser().resolve()
+        if not scene.is_file():
+            parser.error('--scene must name an existing MuJoCo XML scene')
+        config['robot']['scene'] = str(scene)
+    if args.external_turn_assist == 'true':
+        # ROS applies assistance before collision monitoring. The final command
+        # must reach the policy unchanged, including an emergency zero.
+        config['navigation']['turn_assist']['enabled'] = False
     if args.camera_fps <= 0:
         parser.error('--camera-fps must be positive')
     config['camera']['fps'] = args.camera_fps

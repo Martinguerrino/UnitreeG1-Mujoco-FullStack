@@ -86,7 +86,7 @@ class LidarGraphMap(Node):
                 local = matrix(data.laser_scan_local_transform)
                 points = points @ local[:3, :3].T + local[:3, 3]
                 # Remove points inside the articulated robot's navigation footprint.
-                self_hit = ((np.abs(points[:, 0]) < .4) & (np.abs(points[:, 1]) < .4)
+                self_hit = ((np.abs(points[:, 0]) < .33) & (np.abs(points[:, 1]) < .35)
                             & (points[:, 2] >= 0) & (points[:, 2] < 1.5))
                 self.scans[node.id] = voxel_cloud(points[~self_hit])
                 if len(self.scans) > self.max_scans:

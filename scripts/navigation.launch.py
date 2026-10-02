@@ -22,6 +22,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+from g1_backend.navigation_control import merge_parameters
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -92,8 +93,7 @@ def prepare(context):
     }
     for name in ('local_costmap', 'global_costmap'):
         costmap = params[name][name]['ros__parameters']
-        costmap.update(use_sim_time=True, robot_base_frame='base_link', robot_radius=0.4)
-        costmap['inflation_layer']['inflation_radius'] = 0.7
+        costmap.update(use_sim_time=True, robot_base_frame='base_link')
     smoother = params['velocity_smoother']['ros__parameters']
     smoother.update(max_velocity=[0.55, 0.0, 1.0], min_velocity=[-0.3, 0.0, -1.0],
                     max_accel=[0.8, 0.0, 4.0], max_decel=[-0.8, 0.0, -4.0])
@@ -103,10 +103,10 @@ def prepare(context):
     params['amcl']['ros__parameters']['base_frame_id'] = 'base_link'
     if 'collision_monitor' in params:
         params['collision_monitor']['ros__parameters']['base_frame_id'] = 'base_link'
-        if slam_backend == 'rgb-d':
-            # Camera odometry describes past captures. Requiring odom at "now"
-            # for scan motion compensation stalls the monitor on every command.
-            params['collision_monitor']['ros__parameters']['base_shift_correction'] = False
+    tuning = yaml.safe_load((ROOT / 'configs/navigation/nav2_tuning.yaml').read_text())
+    merge_parameters(params, tuning['nav2'])
+    for name in ('local_costmap', 'global_costmap'):
+        params[name][name]['ros__parameters'].pop('robot_radius', None)
     # Keep the resolved launch configuration for reproducibility.
     directory = ROOT / 'results/navigation'
     directory.mkdir(parents=True, exist_ok=True)
@@ -229,6 +229,11 @@ def prepare(context):
              '--duration', LaunchConfiguration('duration'),
              '--camera-fps', str(camera_fps),
              '--ideal', LaunchConfiguration('ideal'),
+             '--external-turn-assist', LaunchConfiguration('nav2'),
+             '--initial-x', LaunchConfiguration('initial_x'),
+             '--initial-y', LaunchConfiguration('initial_y'),
+             '--initial-yaw', LaunchConfiguration('initial_yaw'),
+             '--scene', LaunchConfiguration('scene'),
              '--dexterity', LaunchConfiguration('dexterity')],
         output='screen',
     )
@@ -242,6 +247,11 @@ def prepare(context):
         Node(package='robot_state_publisher', executable='robot_state_publisher',
              parameters=[robot_description, {'use_sim_time': True}], output='screen'),
     ]
+    if LaunchConfiguration('nav2').perform(context) == 'true':
+        actions.append(ExecuteProcess(
+            cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_command_filter.py'),
+                 '--ros-args', '-p', 'use_sim_time:=true'], output='screen',
+        ))
     if real_odom and not sensor_slam:
         estimator = ExecuteProcess(
             cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_odometry.py')],
@@ -330,9 +340,9 @@ def prepare(context):
                              'RGBD/LinearUpdate': '0.0', 'RGBD/AngularUpdate': '0.0',
                              'Grid/Sensor': '1', 'Grid/CellSize': '0.1',
                              'Grid/RangeMin': '0.5',
-                             'Grid/FootprintLength': '0.8', 'Grid/FootprintWidth': '0.8',
+                             'Grid/FootprintLength': '0.66', 'Grid/FootprintWidth': '0.70',
                              'Grid/FootprintHeight': '1.5',
-                             'GridGlobal/FootprintRadius': '0.4',
+                             'GridGlobal/FootprintRadius': '0.30',
                              'GridGlobal/MinSize': '20.0',
                              'Grid/RangeMax': '10.0', 'Grid/MaxObstacleHeight': '1.5',
                              'Grid/MinGroundHeight': '-0.1', 'Grid/MaxGroundHeight': '0.15',
@@ -439,6 +449,10 @@ def generate_launch_description():
                               description='Maximum retained RGB-D frames for TSDF'),
         DeclareLaunchArgument('map', default_value=''),
         DeclareLaunchArgument('viewer', default_value='true'),
+        DeclareLaunchArgument('initial_x', default_value='0.0'),
+        DeclareLaunchArgument('initial_y', default_value='0.0'),
+        DeclareLaunchArgument('initial_yaw', default_value='0.0'),
+        DeclareLaunchArgument('scene', default_value=''),
         DeclareLaunchArgument('duration', default_value='3600.0'),
         DeclareLaunchArgument('camera_fps', default_value='0'),
         DeclareLaunchArgument('rviz', default_value='true'),

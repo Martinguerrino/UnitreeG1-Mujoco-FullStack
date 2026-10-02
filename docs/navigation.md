@@ -83,30 +83,17 @@ gira muy lentamente sin trasladarse, las órdenes de rotación pura de Nav2 se
 acompañan con pulsos cosenoidales: primero retrocede, llega suavemente a cero
 y luego avanza. Se admite una orden lineal residual de hasta 0.05 m/s;
 por encima de ese umbral se conserva el avance de Nav2.
-El LiDAR sólo permite cada semionda si hay al menos 0.8 m
-libres en el sentido correspondiente. Holosoma continúa disponible mediante
-`configs/locomotion_holosoma.yaml`, pero ya no es la opción predeterminada.
-Durante el vaivén, `angular_gain: 36.0` amplifica la orden angular de Nav2,
-limitada a 1.0 rad/s y con una rampa de 4.0 rad/s². Ambas semiondas mantienen
-una consigna de 1.0 rad/s tras la rampa mientras Nav2 siga pidiendo alineación,
-independientemente de la fase longitudinal, de modo que tanto
-el retroceso como el avance contribuyen al giro. La traslación usa pulsos de
-coseno elevado idénticos en ambos sentidos, con pendiente cero al arrancar,
-detenerse y cambiar de dirección. Una orden cero detiene la ayuda.
-El asistente no recibe el objetivo ni mide directamente el error de alineación:
-Nav2 continúa decidiendo cuándo termina el giro.
-La rotación previa al seguimiento termina al quedar dentro de 90 grados de la
-dirección local del camino (`rotate_to_heading_min_angle: 1.571`, equivalente
-al 50% de una media vuelta). Desde ese
-momento Pure Pursuit avanza y corrige el error restante mientras camina; el
-vaivén se desactiva cuando la orden lineal de Nav2 supera 0.05 m/s.
-La ayuda angular continúa durante el seguimiento: `tracking_angular_gain: 3.0`
-multiplica la orden de giro, con el mismo límite de 1.0 rad/s y rampa de
-4.0 rad/s². No aplica un mínimo angular durante la marcha: la corrección
-disminuye proporcionalmente y una orden angular cero se respeta inmediatamente.
-Igualar consignas no garantiza idéntico giro físico en ambas fases. Esta ayuda
-modifica la curvatura calculada por Nav2; falta validar recorridos con obstáculos
-y la llegada al objetivo con esta ganancia.
+La ayuda de giro de Nav2 se aplica antes del monitor de colisiones:
+`cmd_vel_smoothed → cmd_vel_assisted → collision_monitor → cmd_vel`.
+El backend recibe la orden comprobada sin añadir movimiento. Los pulsos tienen
+un máximo de 0.30 m/s, período de 1.5 s y requieren 0.5 m libres según LiDAR.
+La ganancia angular es 4.0 al alinear y 1.5 durante seguimiento, limitada a
+1.0 rad/s con rampa de 2.0 rad/s². La alineación inicial termina bajo 0.6 rad.
+Una orden cero cancela el pulso. Sin comandos recientes (0.25 s reales) o
+escaneos recientes (0.5 s de simulación), el filtro publica cero.
+Los parámetros compartidos están en `configs/navigation/nav2_tuning.yaml`.
+
+Las mediciones siguientes corresponden a versiones anteriores del asistente:
 La validación integrada a 0.48 rad/s produjo 1.786 rad (102.3 grados) de giro,
 sin caídas, watchdogs ni targets articulares recortados. Reporte:
 `results/navigation/20260921T022754_6825f60c/metrics.json`.
@@ -174,7 +161,7 @@ aporta SLAM durante mapping o AMCL con mapa guardado.
   Sus frames e intrínsecos ROS están disponibles, pero aún no se modelan ruido
   estéreo, agujeros de profundidad, exposición, rolling shutter ni distorsión.
 - Se utiliza una base planar para navegación; la política controla el balance
-  completo del humanoide. La huella circular de 0.4 m es una aproximación.
+  completo del humanoide. La huella rectangular con margen, de 0.66 × 0.70 m, aproxima el volumen durante la marcha.
 - Los parámetros efectivos de Nav2 se generan desde los defaults de la versión
   Jazzy instalada y se guardan en `results/navigation/nav2_*.yaml`.
 - Falta validar formación del mapa, planificación, cancelación, llegada y
@@ -645,10 +632,47 @@ La grilla visual tiene un tamaño mínimo de 20 m; las zonas no observadas sigue
 siendo desconocidas y Nav2 conserva `allow_unknown`. Esto permite planificar
 destinos fuera del campo inicial de la cámara, manteniendo la detección de
 obstáculos del LiDAR. RTAB-Map filtra puntos a menos de 0.5 m y dentro de la
-huella del robot (0.8 × 0.8 m, altura 1.5 m), y limpia una huella de radio 0.4 m
+huella del robot (0.66 × 0.70 m, altura 1.5 m), y limpia una huella de radio 0.30 m
 en las poses recorridas para evitar obstáculos del propio cuerpo.
 
 También se probaron destinos RGB-D con ambas interfaces abiertas: `(0.8, -0.8)`
 con yaw `-0.785`, y `(-0.6, -0.7)` con yaw `-2.28`. Ambos terminaron en
 `SUCCEEDED`. Informes: `results/navigation/rgbd_gui_goal_check.json` y
 `results/navigation/rgbd_reverse_goal_check.json`.
+
+
+## Navegación cerca de obstáculos
+
+`configs/navigation/nav2_tuning.yaml` configura ambos SLAM. La huella mide
+0.56 × 0.60 m más 0.05 m de margen por lado. La inflación mantiene radio
+0.7 m y factor 5.0, coincidente con el factor usado por Pure Pursuit para
+regular velocidad. La ventana local mide 4 × 4 m. El LiDAR marca hasta 5 m
+y limpia hasta 8 m, incluidos retornos infinitos válidos. Se conserva el
+monitor de colisiones sobre la huella, ahora después de la ayuda de giro.
+
+Validación en MuJoCo con inicio junto a una pared dentro de inflación:
+
+- `results/navigation/clearance_lidar_isolated_goal.json`: destino alcanzado;
+  coste inicial 32, desplazamiento máximo 1.33 m.
+- `results/navigation/clearance_rgbd_goal.json`: destino alcanzado con TSDF
+  activo; coste inicial 41, desplazamiento máximo 1.11 m.
+- `results/navigation/collision_pipeline_verified/validation.json`: seis
+  comprobaciones satisfactorias con el monitor nativo: avance libre, parada
+  ante obstáculo, recuperación, traslación de giro comprobada, cancelación
+  mediante orden cero y parada por escaneo vencido.
+
+Los parámetros de lanzamiento `initial_x`, `initial_y`, `initial_yaw` colocan
+el robot en la simulación sin proporcionar posición perfecta al estimador.
+`scene:=/ruta/escena.xml` permite probar otra escena. Las pruebas junto a pared
+usaron `initial_x:=2.5 initial_y:=-0.65`, con objetivo del mapa SLAM `(1, -0.7)`.
+El comprobador `scripts/check_navigation_goal.py` acepta `--require-inflated-start`.
+`scripts/check_navigation_collision_pipeline.py` comprueba el monitor aislado;
+usar un ROS_DOMAIN_ID distinto al de la simulación.
+
+Limitación: el pasillo de 0.8 m terminó abortado; el de 1.0 m avanzó 0.60 m
+pero no completó el objetivo antes del límite de tiempo. Reportes:
+`results/navigation/clearance_corridor_verified_goal.json` y
+`results/navigation/clearance_corridor_1m_goal.json`. El ancho de la huella
+no garantiza espacio para girar o absorber oscilaciones y error de odometría.
+Se conservaron los controles de colisión y márgenes: todavía no se acredita
+navegación fiable en esos pasillos.

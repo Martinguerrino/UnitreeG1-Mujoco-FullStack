@@ -61,7 +61,8 @@ def provenance(config):
             for path in (ROOT / 'g1_backend').rglob('*.py')
         },
         'asset_sha256': {
-            str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+            str(path.relative_to(ROOT) if path.is_relative_to(ROOT) else path):
+                hashlib.sha256(path.read_bytes()).hexdigest()
             for path in [
                 ROOT / config['robot']['model'],
                 ROOT / config['robot']['scene'],

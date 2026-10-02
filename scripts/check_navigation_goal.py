@@ -10,7 +10,8 @@ from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import Twist
 from lifecycle_msgs.msg import State
 from lifecycle_msgs.srv import GetState
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, OccupancyGrid
+from nav2_msgs.msg import CollisionMonitorState
 from nav2_msgs.action import NavigateToPose
 from rclpy.action import ActionClient
 from rclpy.parameter import Parameter
@@ -26,12 +27,16 @@ def main():
     parser.add_argument('--timeout', type=float, default=45.0)
     parser.add_argument('--startup-timeout', type=float, default=120.0)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--require-inflated-start', action='store_true')
     args = parser.parse_args()
     rclpy.init()
     node = rclpy.create_node('g1_navigation_goal_check')
     node.set_parameters([Parameter('use_sim_time', value=True)])
     observed = {'scans': 0, 'moving_commands': 0, 'max_displacement': 0.0}
     positions = {}
+    diagnostics = {'controller_commands': 0, 'assisted_commands': 0,
+                   'monitor_stops': 0, 'initial_cost': None, 'monitor_states': {}}
+    costmaps = {}
 
     def command(message):
         if abs(message.linear.x) + abs(message.linear.y) + abs(message.angular.z) > .01:
@@ -50,6 +55,18 @@ def main():
     node.create_subscription(Twist, '/cmd_vel', command, 10)
     node.create_subscription(Odometry, '/odom', odometry, qos_profile_sensor_data)
     node.create_subscription(LaserScan, '/scan', scan, qos_profile_sensor_data)
+    def stage(message, name):
+        if abs(message.linear.x) + abs(message.angular.z) > .01:
+            diagnostics[name] += 1
+    node.create_subscription(Twist, '/cmd_vel_smoothed', lambda msg: stage(msg, 'controller_commands'), 10)
+    node.create_subscription(Twist, '/cmd_vel_assisted', lambda msg: stage(msg, 'assisted_commands'), 10)
+    def monitor(message):
+        key = str(message.action_type)
+        diagnostics['monitor_states'][key] = diagnostics['monitor_states'].get(key, 0) + 1
+        if message.action_type == 1:
+            diagnostics['monitor_stops'] += 1
+    node.create_subscription(CollisionMonitorState, '/collision_monitor_state', monitor, 10)
+    node.create_subscription(OccupancyGrid, '/local_costmap/costmap', lambda msg: costmaps.update(local=msg), 10)
     action = ActionClient(node, NavigateToPose, '/navigate_to_pose')
     lifecycle = node.create_client(GetState, '/bt_navigator/get_state')
     started = time.monotonic()
@@ -59,13 +76,19 @@ def main():
         if lifecycle.service_is_ready() and action.server_is_ready() and 'latest' in positions:
             future = lifecycle.call_async(GetState.Request())
             rclpy.spin_until_future_complete(node, future, timeout_sec=1)
-            if future.done() and future.result().current_state.id == State.PRIMARY_STATE_ACTIVE:
+            if (future.done() and future.result().current_state.id == State.PRIMARY_STATE_ACTIVE
+                    and 'local' in costmaps):
                 active = True
                 break
     status = None
     accepted = False
     if active:
         positions['start'] = positions['latest']
+        grid = costmaps['local']
+        x = int((positions['start'][0] - grid.info.origin.position.x) / grid.info.resolution)
+        y = int((positions['start'][1] - grid.info.origin.position.y) / grid.info.resolution)
+        if 0 <= x < grid.info.width and 0 <= y < grid.info.height:
+            diagnostics['initial_cost'] = int(grid.data[y * grid.info.width + x])
         goal = NavigateToPose.Goal()
         goal.pose.header.frame_id = 'map'
         goal.pose.header.stamp = node.get_clock().now().to_msg()
@@ -86,7 +109,9 @@ def main():
                 rclpy.spin_until_future_complete(node, cancellation, timeout_sec=3)
     passed = (status == GoalStatus.STATUS_SUCCEEDED and observed['scans'] > 0
               and observed['moving_commands'] > 0 and observed['max_displacement'] > .25)
-    report = {**observed, 'nav2_active': active, 'goal_accepted': accepted,
+    if args.require_inflated_start:
+        passed = passed and diagnostics['initial_cost'] is not None and 0 < diagnostics['initial_cost'] < 99
+    report = {**observed, **diagnostics, 'nav2_active': active, 'goal_accepted': accepted,
               'goal_status': status, 'start': positions.get('start'),
               'end': positions.get('latest'), 'passed': passed}
     args.output.parent.mkdir(parents=True, exist_ok=True)
