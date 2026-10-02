@@ -6,7 +6,9 @@ interface: lo
 # Dedicated backend DDS domain so an old locomotion run cannot block navigation.
 domain_id: 44
 timestep: 0.002
-state_timeout: 0.25
+# SLAM/ROS startup and host scheduling can pause the simulator temporarily.
+# This configuration is simulation-only; command freshness stays at 250 ms.
+state_timeout: 1.0
 command_timeout: 0.25
 initial_position: [0.0, 0.0, 0.793]
 initial_yaw: 0.0

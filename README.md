@@ -4,8 +4,16 @@ Integración inicial de [Nav2 + SLAM Toolbox](docs/navigation.md):
 `bash scripts/navigation.sh` abre MuJoCo y RViz para seleccionar destinos.
 La navegación publica además un MID-360 3D simulado y una D435i RGB-D en tópicos
 ROS estándar, conservando `/scan` como proyección 2D para Nav2.
-Requiere instalar los paquetes indicados en esa guía; validación extremo a
-extremo pendiente.
+También permite elegir FAST-LIO2 o RTAB-Map para generar mapas 3D:
+
+```bash
+bash scripts/install_navigation_slam.sh
+bash scripts/navigation.sh --slam lidar3d
+bash scripts/navigation.sh --slam rgb-d
+```
+
+Los mapas se guardan en `results/navigation/`. Dependencias, sensores y
+limitaciones se detallan en la [guía de navegación](docs/navigation.md).
 
 Stack educativo y modular de locomanipulación para el Unitree G1 de 29 DOF. La
 versión actual llega hasta planificación de brazos con MoveIt 2:

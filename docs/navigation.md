@@ -287,3 +287,246 @@ una ejecución anterior de `navigation_bridge.py` o `navigation_sim.py` de este
 workspace y usuario. Si pertenecen a otro proceso, cancela el arranque sin
 cerrarlo. La salida del puente o del simulador solicita un único cierre del
 stack para evitar continuar sin uno de los procesos esenciales.
+
+### Odometría LiDAR + RGB-D con Kalman (`--real-odom`)
+
+```bash
+bash scripts/navigation.sh --real-odom
+# Sin ventanas:
+bash scripts/navigation.sh --real-odom viewer:=false rviz:=false
+```
+
+El arranque habitual conserva la odometría ideal. `--real-odom` usa las nubes
+`/mid360/points` y los pares sincronizados de RGB, profundidad métrica y
+calibración. No consume `/imu/data`, posición/velocidad de MuJoCo ni comandos
+para estimar movimiento. La IMU del SDK sigue usándose para controlar el
+balance y la marcha, independientemente de esta odometría.
+
+Cada sensor mantiene una trayectoria y referencias propias:
+
+- LiDAR: registro ICP punto a plano en seis grados de libertad. Conserva el
+  suelo para observar altura, roll y pitch, y rechaza geometría degenerada.
+- RGB-D: características ORB, profundidad de la referencia y PnP con RANSAC
+  para obtener movimiento métrico. Verifica profundidad actual y error de
+  reproyección. Si faltan características, intenta registro de profundidad
+  con correspondencias filtradas por color. En escenas con poca geometría,
+  asigna incertidumbre alta a los ejes que no puede determinar.
+
+Un filtro de Kalman de 12 estados estima XYZ, roll/pitch/yaw y sus velocidades.
+Predice con un modelo de velocidad constante y corrige con las poses de ambos
+sensores, ponderadas por covarianza. Envuelve las innovaciones angulares y
+rechaza saltos mediante la distancia de Mahalanobis. Las covarianzas son
+aproximaciones conservadoras derivadas de calidad/geometría y errores del
+registro; no son garantías estadísticas calibradas en hardware.
+
+Se mantienen referencias hasta 0.25 m o 0.15 rad para evitar integrar ruido
+entre cada par de cuadros. Si un sensor pierde seguimiento durante cinco
+intentos y el otro sigue actualizado, se reinicializa su referencia en la
+pose fusionada con incertidumbre inflada. Esta recuperación comparte un
+origen con el otro sensor; no representa una localización independiente ni
+un cierre de bucle. El filtro aproxima las correlaciones entre referencias.
+
+El estimador publica `/odom` y `odom → base_link` para Nav2, y
+`base_link → pelvis` con altura e inclinación estimadas. El puente no publica
+ninguna de esas transformaciones en este modo, ni usa IMU para ellas.
+El origen empieza con XY=0, orientación inicial cero y altura nominal
+0.793 m, suponiendo que el robot empieza de pie sobre suelo plano; los cambios
+posteriores de altura e inclinación sí se estiman desde los sensores.
+Las transformaciones internas pelvis–sensor provienen del montaje URDF y
+las posiciones articulares. `/scan` se proyecta desde los retornos reales
+del LiDAR usando la pose fusionada, banda de altura 0.15–1.50 m.
+
+Tópicos de diagnóstico:
+
+| Tópico | Contenido |
+|---|---|
+| `/odometry/lidar` | Pose 3D aceptada del LiDAR y su covarianza |
+| `/odometry/rgbd` | Pose 3D aceptada de RGB-D y su covarianza |
+| `/odometry/fused_3d` | Pose 3D del filtro |
+| `/odometry/status` | Fuente, método, aceptaciones, rechazos y último tiempo válido |
+| `/ground_truth/odom` | Referencia aislada de MuJoCo para evaluación |
+
+Una inicialización o una predicción sin medición no cuenta como odometría
+válida. Si fallan ambos sensores, no se refresca `/odom`; el puente inhibe
+consignas tras 0.3 s simulados sin odometría medida. Si falla solo uno, el
+filtro sigue con el otro. Nav2 sigue necesitando el LiDAR para su escaneo de
+obstáculos. `--ideal` es incompatible, porque desactiva estos sensores.
+
+Dependencias en `/usr/bin/python3`: ROS Jazzy, NumPy, SciPy y OpenCV
+(`python3-opencv` si falta). El proceso limita BLAS/OpenMP/OpenCV a un hilo
+para no competir con el controlador DDS. No necesita RTAB-Map ni GPU para
+la estimación; el renderizado de RGB-D conserva su backend habitual.
+
+La fusión estima odometría local; SLAM Toolbox sigue formando el mapa 2D.
+La cámara no agrega imágenes al mapa. Persisten limitaciones de textura,
+oclusiones, registro local, sesgos/correlaciones y pérdida prolongada de
+ambos sensores. No se replica aún ruido o distorsión temporal de sensores
+reales ni se valida navegación sobre rampas.
+
+Para comparar con la referencia, sin que esta entre en el estimador:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+ROS_DOMAIN_ID=43 RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
+  ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST \
+  /usr/bin/python3 scripts/check_navigation_odometry.py --duration 65 \
+  --output results/navigation/real_odom_rgbd_lidar_comparison.json
+```
+
+La auditoría alinea el origen XY/yaw inicial, mide error de trayectoria y
+cuenta mediciones aceptadas de cada sensor. También lista las suscripciones
+del estimador para comprobar que no consume IMU ni ground truth.
+
+Validación sin ventanas (2026-10-01):
+
+- Meta Nav2 `(0.7, 0)` alcanzada; 462 scans verificados por TF, sin errores en
+  `results/navigation/sensor_audit_rgbd_lidar.json`. La comparación simultánea
+  aceptó 459 poses LiDAR y 434 RGB-D; error XY máximo 0.0215 m.
+- Ensayo acotado de avance y giro con ambos sensores: sesión completada,
+  cero caídas y cero watchdogs. Desplazamiento neto 1.245 m y giro físico de
+  aproximadamente 54.5°. Aceptó 312 poses LiDAR y 309 RGB-D; en el intervalo
+  auditado el error XY máximo fue 0.0215 m, final 0.0165 m, y el error de yaw
+  máximo 0.0094 rad (0.54°). Reportes:
+  `results/navigation/real_odom_rgbd_lidar_turn_comparison.json` y
+  `results/navigation/20261001T234025_24dbe56e/metrics.json`.
+
+Estos ensayos cortos no establecen precisión en recorridos largos ni
+rendimiento con MuJoCo viewer y RViz abiertos. Una prueba previa bajo carga
+concurrente terminó por `LowState missing or stale`; la ejecución acotada
+final, sin pruebas gráficas paralelas, completó sin ese error.
+
+### SLAM 3D: FAST-LIO2 y RTAB-Map
+
+```bash
+# Instalación local, sin sudo (ROS Jazzy y herramientas de compilación requeridas).
+bash scripts/install_navigation_slam.sh
+
+# Nube geométrica XYZ: FAST-LIO2 + IMU de la parte superior del cuerpo.
+bash scripts/navigation.sh --slam lidar3d
+
+# Nube coloreada XYZRGB: odometría RGB-D y SLAM de RTAB-Map.
+bash scripts/navigation.sh --slam rgb-d
+
+# Carpeta de salida explícita; para pruebas sin interfaces gráficas:
+bash scripts/navigation.sh --slam lidar3d viewer:=false rviz:=false \
+  duration:=60 slam_output:=results/navigation/my_lidar_map
+```
+
+Sin `--slam` se conserva SLAM Toolbox 2D. Los dos modos nuevos activan
+odometría por sensores automáticamente, sin necesitar `--real-odom`, y
+reemplazan el estimador LiDAR/RGB-D propio y SLAM Toolbox. `--ideal` es
+incompatible porque desactiva los sensores montados. Actualmente estos modos
+implementan `mode:=mapping`; la localización desde un mapa 3D guardado queda
+fuera de esta integración. `nav2:=false` permite ejecutar únicamente sensores,
+odometría, mapeo y RViz para comparar los motores.
+
+Los resultados se guardan en una carpeta única bajo `results/navigation/`, o en
+`slam_output`. Ambos escriben **`map.pcd`** cada 30 segundos de simulación y
+al cerrar normalmente. `rgb-d` conserva también **`rtabmap.db`**, con imágenes,
+profundidad, trayectoria y grafo para reutilización/exportación mediante las
+herramientas de RTAB-Map. El PCD visual conserva el campo RGB; no es una malla
+texturizada. Al reutilizar explícitamente una carpeta existente RTAB-Map puede
+abrir su base de datos anterior; usar una carpeta nueva para una sesión nueva.
+
+En RViz, `SLAM 3D map` muestra `/slam/map_points`. Ambos motores proporcionan
+`/odom` y las transformaciones estimadas para Nav2. `/map` es una proyección 2D
+para planificación, adicional al mapa 3D; FAST-LIO la obtiene mediante rayos de
+obstáculos medidos y RTAB-Map mediante su generador de ocupación.
+
+Nav2 arranca cuando recibe un mapa, odometría y un `/scan` reciente, después de la
+estabilización inicial del robot. La espera de arranque admite hasta 180
+segundos de reloj real para cargar sensores y modelos.
+La configuración de navegación del simulador admite hasta 1 segundo sin un
+`LowState` nuevo para tolerar pausas de carga del equipo. La frescura de comandos
+DDS sigue limitada a 250 ms y el bridge exige odometría de menos de 300 ms.
+
+El modo `rgb-d` captura a 20 Hz (`camera_fps:=...` permite ajustar la frecuencia).
+Usa flujo óptico entre cuadros consecutivos y correspondencias 3D–3D de la
+profundidad, sin extrapolar movimiento. Renueva el cuadro de referencia en cada
+captura y descarta puntos a menos de 0.5 m para reducir observaciones del propio
+robot. Estos ajustes evitan que la textura repetitiva del suelo simulado mantenga
+una predicción incorrecta. La odometría y el mapa visual usan únicamente RGB-D;
+el LiDAR sigue proporcionando obstáculos a Nav2.
+
+```bash
+# Guardar la última nube sin detener la sesión (en un terminal ROS del dominio 43).
+source /opt/ros/jazzy/setup.bash
+source scripts/slam_env.sh
+export ROS_DOMAIN_ID=43 RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+ros2 service call /slam/save_map std_srvs/srv/Trigger '{}'
+
+# Prueba observable; --drive avanza y gira lentamente el robot simulado.
+/usr/bin/python3 scripts/check_navigation_slam.py --duration 35 --drive \
+  --output results/navigation/slam_check.json
+```
+
+**FAST-LIO2:** se usa el port ROS 2 de
+[Ericsii/FAST_LIO_ROS2](https://github.com/Ericsii/FAST_LIO_ROS2), fijado en
+`2fffc570a25d0df172720bac034fbdb6a13d2162`, derivado de
+[hku-mars/FAST_LIO](https://github.com/hku-mars/FAST_LIO). La instalación compila
+las interfaces oficiales Livox sin ejecutar el driver de hardware. Los ajustes
+reproducibles en `prepare_fast_lio.py` fuerzan C++17 y permiten capturas
+instantáneas: el LiDAR de MuJoCo no tiene un barrido físico ni tiempos por punto,
+por lo que no se inventan y no se aplica deskew a esas capturas. Este ajuste es
+para el simulador; con un MID360 físico hay que utilizar sus mensajes y tiempos
+reales, extrínsecos calibrados y la configuración normal de FAST-LIO.
+
+`/imu/torso` publica aceleración específica y velocidad angular de
+`secondary_imu` en cada paso de física (500 Hz con timestep 0.002), con sus
+marcas temporales originales. No publica orientación real del simulador como
+medición. La IMU está en `waist_roll_link`, unido rígidamente al torso mediante
+el desplazamiento de 0.019 m; su frame ROS y el extrínseco del LiDAR incluyen
+ese desplazamiento. Conservar todas las muestras evita aliasing de las
+aceleraciones impulsivas de los contactos del humanoide.
+
+El adaptador obtiene la pose de pelvis a partir de la pose estimada y las
+articulaciones publicadas, y separa la pose planar de la altura/roll/pitch. El
+origen vertical usa la altura nominal de pie del modelo, no la telemetría de
+posición real. Esto supone inicialización de pie sobre el suelo z=0; para otro
+robot o altura inicial deben ajustarse los anclajes y extrínsecos.
+
+FAST-LIO2 proporciona odometría LiDAR–inercial y mapeo incremental; **no añade
+cierre de bucles global** en esta integración. La nube se voxeliza a 8 cm y se
+limita a 400000 vóxeles para acotar memoria; al llegar al límite deja de añadir
+celdas nuevas. La proyección 2D está acotada a ±50 m y está pensada para un
+entorno estático. RTAB-Map sí realiza optimización y cierre de bucles, y su nube
+exportada reemplaza el mapa anterior para respetar esas correcciones.
+
+Los estimadores no consumen `/ground_truth/odom`; ese topic permanece aislado
+para evaluación. El bridge inhibe comandos cuando falta odometría reciente.
+La prueba comprueba recepción de mapas y odometría, desplazamiento y error XY
+contra ground truth únicamente en el proceso de evaluación; no sustituye una
+prueba de recorridos largos ni de cierre de bucles.
+
+Validación local del 2026-10-02, con avance y giro mediante `/cmd_vel`, Nav2
+activo y cierre normal de sesiones de 30 segundos de navegación:
+
+| Motor | Desplazamiento máximo | Error XY máximo | Mapa guardado |
+| --- | --- | --- | --- |
+| FAST-LIO2 | 1.87 m | 0.039 m | PCD XYZ, 63371 puntos |
+| RTAB-Map RGB-D | 2.10 m | 0.079 m | PCD XYZRGB, 4130 puntos y base RTAB-Map |
+
+Informes: `results/navigation/lidar_nav_slam_check.json` y
+`results/navigation/rgbd_nav_slam_check.json`. Estas pruebas verifican sensores,
+estimación, mapeo y activación de Nav2; no evalúan un objetivo autónomo de Nav2.
+
+Para comprobar también el recorrido autónomo, con una sesión de navegación
+activa y un destino libre en el mapa:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+export ROS_DOMAIN_ID=43 RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+/usr/bin/python3 scripts/check_navigation_goal.py --x 1 --y 0 --yaw 0 \
+  --output results/navigation/goal_check.json
+```
+
+La prueba espera que Nav2 esté activo, envía `NavigateToPose` y comprueba scans,
+comandos de velocidad, desplazamiento y resultado `SUCCEEDED`. Ambos motores
+completaron el destino `(1, 0)` en las pruebas locales. Informes:
+`results/navigation/lidar_goal_check.json` y `results/navigation/rgbd_goal_check.json`.
+
+Las nubes LiDAR se retienen brevemente hasta disponer del TF estimado de su
+captura, porque la odometría llega después del sensor. Esto evita descartar
+todos los scans y dejar al monitor de colisiones de Nav2 bloqueando el movimiento
+por falta de datos. La cola está limitada a 10 nubes y descarta las de más de
+500 ms; no se desactiva el monitor de colisiones.

@@ -226,6 +226,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
         collisions = 0
         previous_contacts = set()
         next_telemetry = 0.0
+        navigation_imu = []
         next_camera = 0.0
         next_scan = 0.0
         scan = None
@@ -263,6 +264,15 @@ def run_simulator(config, initial_q, pipe, stop, release):
                     plant.advance(data, gripper_target)
                     grippers.send(plant.encoder_state(data))
                 mujoco.mj_step(model, data)
+                if config.get('navigation'):
+                    navigation_imu.append({
+                        # mj_step's sensors describe the beginning of this step.
+                        # Preserve every physics sample (500 Hz): downsampling
+                        # foot-impact accelerations aliases them into false drift.
+                        'time': float(data.time - robot['timestep']),
+                        **{name: data.sensor('secondary_imu_' + name).data.tolist()
+                           for name in ('gyro', 'acc')},
+                    })
                 # mj_step leaves Cartesian poses at the previous integration step.
                 if (data.time >= next_telemetry
                         or (config.get('navigation') and data.time >= next_scan)
@@ -320,6 +330,9 @@ def run_simulator(config, initial_q, pipe, stop, release):
                     pipe.send(
                         {
                             'time': float(data.time),
+                            'imu': {name: data.sensor('imu_' + name).data.tolist()
+                                    for name in ('quat', 'gyro', 'acc')},
+                            'torso_imu': navigation_imu.copy(),
                             'scan': scan,
                             'scan_time': scan_time,
                             'position': data.qpos[:3].tolist(),
@@ -360,6 +373,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
                         sensor_frame = None
                         sensor_times = {}
                     next_telemetry = data.time + 0.02
+                    navigation_imu.clear()
             if viewer is not None and time.monotonic() >= next_viewer:
                 viewer.sync()
                 next_viewer = time.monotonic() + 1 / 30

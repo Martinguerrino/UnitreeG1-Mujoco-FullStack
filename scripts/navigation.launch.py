@@ -1,8 +1,11 @@
 """Standalone launch: MuJoCo/DDS, ROS bridge, SLAM or AMCL, Nav2 and RViz."""
 
 from pathlib import Path
+import importlib.util
 import tempfile
 import sys
+import sqlite3
+from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -25,9 +28,26 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def prepare(context):
     ideal = LaunchConfiguration('ideal').perform(context) == 'true'
+    slam_backend = LaunchConfiguration('slam').perform(context)
+    sensor_slam = slam_backend != 'slam_toolbox'
+    camera_fps = float(LaunchConfiguration('camera_fps').perform(context))
+    if camera_fps == 0:
+        camera_fps = 20.0 if slam_backend == 'rgb-d' else 10.0
+    if camera_fps <= 0:
+        raise ValueError('camera_fps must be positive (or 0 for backend default)')
+    real_odom = LaunchConfiguration('real_odom').perform(context) == 'true' or sensor_slam
+    if real_odom:
+        for dependency in ('cv2', 'scipy'):
+            if importlib.util.find_spec(dependency) is None:
+                raise RuntimeError('--real-odom requires system Python OpenCV and SciPy: '
+                                   'sudo apt install python3-opencv python3-scipy')
+    if ideal and real_odom:
+        raise ValueError('--real-odom and --slam require mounted sensors; remove --ideal')
     mode = LaunchConfiguration('mode').perform(context)
     if mode not in ('mapping', 'localization'):
         raise ValueError('mode must be mapping or localization')
+    if sensor_slam and mode != 'mapping':
+        raise ValueError('3D backends currently support mapping; mode:=localization uses slam_toolbox/AMCL')
     map_path = LaunchConfiguration('map').perform(context)
     if mode == 'localization' and not Path(map_path).is_file():
         raise ValueError('localization requires map:=/absolute/path/map.yaml')
@@ -86,6 +106,21 @@ def prepare(context):
     # Keep the resolved launch configuration for reproducibility.
     directory = ROOT / 'results/navigation'
     directory.mkdir(parents=True, exist_ok=True)
+    slam_output = LaunchConfiguration('slam_output').perform(context)
+    if sensor_slam:
+        slam_output = Path(slam_output).expanduser().resolve() if slam_output else directory / (slam_backend + '_' + datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f'))
+        slam_output.mkdir(parents=True, exist_ok=True)
+        database = slam_output / 'rtabmap.db'
+        if slam_backend == 'rgb-d' and database.exists():
+            try:
+                with sqlite3.connect(database.as_uri() + '?mode=ro', uri=True) as connection:
+                    tables = {row[0] for row in connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'")}
+                if not {'Node', 'Data', 'Statistics', 'Admin'}.issubset(tables):
+                    raise ValueError('incomplete RTAB-Map schema')
+            except (sqlite3.Error, ValueError) as error:
+                raise ValueError(f'Cannot reuse {database}: {error}. '
+                                 'Choose a new slam_output directory for this session.') from error
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', prefix='nav2_',
                                      dir=directory, delete=False) as handle:
         yaml.safe_dump(params, handle)
@@ -143,6 +178,16 @@ def prepare(context):
             ],
         },
     ])
+    if sensor_slam:
+        displays.append({
+            'Class': 'rviz_default_plugins/PointCloud2', 'Name': 'SLAM 3D map',
+            'Enabled': True, 'Value': True, 'Style': 'Points', 'Size (Pixels)': 2,
+            'Color Transformer': 'RGB8' if slam_backend == 'rgb-d' else 'AxisColor',
+            'Axis': 'Z', 'Decay Time': 0.0,
+            'Topic': {'Value': '/slam/map_points', 'Depth': 1,
+                      'Reliability Policy': 'Reliable',
+                      'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
+        })
     rviz_config['Visualization Manager']['Views']['Current'] = {
         'Class': 'rviz_default_plugins/Orbit', 'Name': 'G1 3D', 'Distance': 7.0,
         'Pitch': 0.55, 'Yaw': 0.8, 'Target Frame': 'base_link',
@@ -169,12 +214,15 @@ def prepare(context):
     simulator = ExecuteProcess(
         cmd=[LaunchConfiguration('sim_python'), str(ROOT / 'scripts/navigation_sim.py'),
              '--viewer', LaunchConfiguration('viewer'),
+             '--duration', LaunchConfiguration('duration'),
+             '--camera-fps', str(camera_fps),
              '--ideal', LaunchConfiguration('ideal'),
              '--dexterity', LaunchConfiguration('dexterity')],
         output='screen',
     )
     bridge = ExecuteProcess(
-        cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_bridge.py')], output='screen'
+        cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_bridge.py'),
+             '--ros-args', '-p', 'real_odom:=' + str(real_odom).lower()], output='screen'
     )
     actions = [
         bridge,
@@ -182,7 +230,75 @@ def prepare(context):
         Node(package='robot_state_publisher', executable='robot_state_publisher',
              parameters=[robot_description, {'use_sim_time': True}], output='screen'),
     ]
-    if not ideal:
+    if real_odom and not sensor_slam:
+        estimator = ExecuteProcess(
+            cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_odometry.py')],
+            output='screen',
+        )
+        actions.append(estimator)
+    if sensor_slam:
+        estimator = ExecuteProcess(
+            cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_slam_adapter.py'),
+                 '--ros-args', '-p', 'use_sim_time:=true', '-p', 'backend:=' + slam_backend,
+                 '-p', 'output_dir:=' + str(slam_output)], output='screen',
+        )
+        actions.append(estimator)
+        if slam_backend == 'lidar3d':
+            engine = Node(
+                package='fast_lio', executable='fastlio_mapping',
+                parameters=[str(ROOT / 'configs/navigation/fast_lio.yaml')],
+                remappings=[('/Odometry', '/slam/odometry'),
+                            ('/cloud_registered', '/slam/registered_points')],
+                output='screen',
+            )
+            actions.append(engine)
+        else:
+            rgbd_topics = [
+                ('rgb/image', '/camera/color/image_raw'),
+                ('depth/image', '/camera/depth/image_rect_raw'),
+                ('rgb/camera_info', '/camera/color/camera_info'),
+            ]
+            engine = Node(
+                package='rtabmap_odom', executable='rgbd_odometry',
+                parameters=[{'use_sim_time': True, 'frame_id': 'pelvis',
+                             'odom_frame_id': 'odom', 'publish_tf': False,
+                             'approx_sync': False, 'qos': 2, 'qos_camera_info': 1,
+                             'wait_for_transform': 0.2, 'Odom/Strategy': '1',
+                             'Vis/CorType': '1',
+                             'Vis/EstimationType': '0', 'Vis/InlierDistance': '0.03',
+                             'Odom/KeyFrameThr': '0.0', 'Odom/VisKeyFrameThr': '0',
+                             'Odom/GuessMotion': 'false', 'Vis/MinDepth': '0.5',
+                             'Vis/MaxFeatures': '600',
+                             'Vis/FeatureType': '8', 'Vis/MinInliers': '12'}],
+                remappings=rgbd_topics + [('odom', '/slam/odometry')], output='screen',
+            )
+            mapping = Node(
+                package='rtabmap_slam', executable='rtabmap',
+                parameters=[{'use_sim_time': True, 'frame_id': 'base_link',
+                             'map_frame_id': 'map', 'odom_frame_id': '',
+                             'subscribe_depth': True, 'subscribe_rgb': True,
+                             'subscribe_scan': False, 'approx_sync': True,
+                             'approx_sync_max_interval': 0.2,
+                             'qos_image': 2, 'qos_camera_info': 1, 'qos_odom': 1,
+                             'database_path': str(slam_output / 'rtabmap.db'),
+                             'wait_for_transform': 0.3, 'publish_tf': True,
+                             'Rtabmap/DetectionRate': '2.0',
+                             'Grid/Sensor': '1', 'Grid/CellSize': '0.1',
+                             'Grid/RangeMax': '10.0', 'Grid/MaxObstacleHeight': '1.5',
+                             'Grid/MinGroundHeight': '-0.1', 'Grid/MaxGroundHeight': '0.15',
+                             'Grid/NormalsSegmentation': 'false',
+                             'Grid/3D': 'true', 'map_always_update': True,
+                             'cloud_output_voxelized': True}],
+                remappings=rgbd_topics + [('odom', '/odom'),
+                                         ('cloud_map', '/slam/map_points'),
+                                         ('grid_map', '/map')], output='screen',
+            )
+            actions.extend([engine, mapping])
+            actions.append(RegisterEventHandler(OnProcessExit(
+                target_action=mapping, on_exit=lambda event, context: [
+                    EmitEvent(event=Shutdown(reason='RTAB-Map stopped'))] if not context.is_shutdown else [],
+            )))
+    if not ideal and LaunchConfiguration('rviz').perform(context) == 'true':
         actions.append(ExecuteProcess(
             cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_camera_plane.py')],
             output='screen',
@@ -198,18 +314,19 @@ def prepare(context):
         shutdown_requested = True
         return [EmitEvent(event=Shutdown(reason='Navigation process stopped'))]
 
-    for process in (simulator, bridge):
+    for process in (simulator, bridge, *([estimator] if real_odom else []),
+                    *([engine] if sensor_slam else [])):
         actions.append(RegisterEventHandler(OnProcessExit(
             target_action=process, on_exit=stop_navigation,
         )))
-    if mode == 'mapping':
+    if mode == 'mapping' and not sensor_slam:
         slam = Path(get_package_share_directory('slam_toolbox'))
         actions.append(IncludeLaunchDescription(
             PythonLaunchDescriptionSource(str(slam / 'launch/online_async_launch.py')),
             launch_arguments={'use_sim_time': 'true',
                               'slam_params_file': str(ROOT / 'configs/navigation/slam.yaml')}.items(),
         ))
-    else:
+    elif mode == 'localization':
         actions.append(IncludeLaunchDescription(
             PythonLaunchDescriptionSource(str(nav / 'launch/localization_launch.py')),
             launch_arguments={'use_sim_time': 'true', 'map': map_path,
@@ -227,7 +344,25 @@ def prepare(context):
         launch_arguments={'use_sim_time': 'true', 'params_file': params_path,
                           'autostart': 'true', 'use_composition': 'False'}.items(),
     )
-    actions.append(TimerAction(period=8.0, actions=[nav2]))
+    if LaunchConfiguration('nav2').perform(context) == 'true':
+        if sensor_slam:
+            readiness = ExecuteProcess(
+                cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_slam_ready.py'),
+                     '--ros-args', '-p', 'use_sim_time:=true'], output='screen',
+            )
+
+            def start_navigation(event, context):
+                if context.is_shutdown:
+                    return []
+                if event.returncode != 0:
+                    return [EmitEvent(event=Shutdown(reason='Sensor SLAM did not become ready'))]
+                return [nav2]
+
+            actions.extend([readiness, RegisterEventHandler(OnProcessExit(
+                target_action=readiness, on_exit=start_navigation,
+            ))])
+        else:
+            actions.append(TimerAction(period=8.0, actions=[nav2]))
     if LaunchConfiguration('rviz').perform(context) == 'true':
         actions.append(TimerAction(period=8.0, actions=[
             Node(package='rviz2', executable='rviz2',
@@ -241,10 +376,17 @@ def prepare(context):
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('mode', default_value='mapping'),
+        DeclareLaunchArgument('slam', default_value='slam_toolbox',
+                              choices=['slam_toolbox', 'lidar3d', 'rgb-d']),
+        DeclareLaunchArgument('slam_output', default_value=''),
         DeclareLaunchArgument('map', default_value=''),
         DeclareLaunchArgument('viewer', default_value='true'),
+        DeclareLaunchArgument('duration', default_value='3600.0'),
+        DeclareLaunchArgument('camera_fps', default_value='0'),
         DeclareLaunchArgument('rviz', default_value='true'),
+        DeclareLaunchArgument('nav2', default_value='true'),
         DeclareLaunchArgument('dexterity', default_value='hand', choices=['hand', 'claw']),
+        DeclareLaunchArgument('real_odom', default_value='false'),
         DeclareLaunchArgument('ideal', default_value='false'),
         DeclareLaunchArgument('sim_python', default_value=
                               '/home/martin/miniforge3/envs/mujoco-unitree/bin/python'),

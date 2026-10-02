@@ -1,0 +1,497 @@
+{
+  "date": "2026-10-01",
+  "policy_successes": 0,
+  "completed_policy_episodes": 5,
+  "criteria": "same-hand bilateral contact and lift > 5 cm continuously for >= 0.5 s",
+  "calibrated_training_reproduction": false,
+  "diagnostics": [
+    {
+      "directory": "results/okura_eval_20261001_baseline",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 1,
+      "max_object_lift_m": 0.00034900097581325173,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 518,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.2365187406539917,
+        "left_shoulder_roll_joint": 0.7923009991645813,
+        "left_shoulder_yaw_joint": 1.0363723039627075,
+        "left_elbow_joint": 0.8486341238021851,
+        "left_wrist_roll_joint": 0.9341701865196228,
+        "left_wrist_pitch_joint": 0.32818931341171265,
+        "left_wrist_yaw_joint": 0.38227736949920654,
+        "right_shoulder_pitch_joint": 1.6417489051818848,
+        "right_shoulder_roll_joint": 1.6537177562713623,
+        "right_shoulder_yaw_joint": 1.3672473430633545,
+        "right_elbow_joint": 1.544503092765808,
+        "right_wrist_roll_joint": 0.9429377913475037,
+        "right_wrist_pitch_joint": 1.4166995286941528,
+        "right_wrist_yaw_joint": 0.72589111328125,
+        "left_gripper": 0.0,
+        "right_gripper": 0.8757630586624146
+      },
+      "state_outside_training_minmax_fraction": 0.020833333333333332,
+      "inference_median_host_seconds": 0.6313847615001578,
+      "arm_tracking_error_p95_rad": 0.05765643715858459,
+      "arm_tracking_error_max_rad": 0.15206003189086914,
+      "right_gripper_tracking_error_p95_motor_rad": 0.3436061143875122,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        0.010183456087592135,
+        0.015668402574181964,
+        -0.0013471130960499567
+      ]
+    },
+    {
+      "directory": "results/okura_eval_20261001_final_plain100",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 1,
+      "max_object_lift_m": 0.000754344189377254,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 518,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.3347374200820923,
+        "left_shoulder_roll_joint": 0.6440334320068359,
+        "left_shoulder_yaw_joint": 0.6367008090019226,
+        "left_elbow_joint": 1.0223278999328613,
+        "left_wrist_roll_joint": 0.7054700255393982,
+        "left_wrist_pitch_joint": 0.32818931341171265,
+        "left_wrist_yaw_joint": 0.32884857058525085,
+        "right_shoulder_pitch_joint": 1.6417489051818848,
+        "right_shoulder_roll_joint": 1.9838042259216309,
+        "right_shoulder_yaw_joint": 1.828776240348816,
+        "right_elbow_joint": 1.544503092765808,
+        "right_wrist_roll_joint": 1.7786842584609985,
+        "right_wrist_pitch_joint": 1.3428224325180054,
+        "right_wrist_yaw_joint": 1.104431390762329,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.0,
+      "inference_median_host_seconds": 0.6488263774990628,
+      "arm_tracking_error_p95_rad": 0.056201902031898496,
+      "arm_tracking_error_max_rad": 0.0914188027381897,
+      "right_gripper_tracking_error_p95_motor_rad": 0.1095200777053833,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -0.23507599712923838,
+        -0.36503348628516974,
+        -0.7244419547702888
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.1362334496855215,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance."
+    },
+    {
+      "directory": "results/okura_eval_20261001_final_plain30",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 561,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.1845574378967285,
+        "left_shoulder_roll_joint": 0.8607872128486633,
+        "left_shoulder_yaw_joint": 0.7474220395088196,
+        "left_elbow_joint": 1.024024248123169,
+        "left_wrist_roll_joint": 0.272603303194046,
+        "left_wrist_pitch_joint": 1.4002139568328857,
+        "left_wrist_yaw_joint": 0.4064174294471741,
+        "right_shoulder_pitch_joint": 2.2865707874298096,
+        "right_shoulder_roll_joint": 1.1867070198059082,
+        "right_shoulder_yaw_joint": 1.5643980503082275,
+        "right_elbow_joint": 1.748476266860962,
+        "right_wrist_roll_joint": 0.8534176349639893,
+        "right_wrist_pitch_joint": 1.474400520324707,
+        "right_wrist_yaw_joint": 0.8016575574874878,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.0,
+      "inference_median_host_seconds": 0.6367880020006851,
+      "arm_tracking_error_p95_rad": 0.055617147684097284,
+      "arm_tracking_error_max_rad": 0.09765534400939946,
+      "right_gripper_tracking_error_p95_motor_rad": 0.105438232421875,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -7.536270902608333e-05,
+        0.0001146641973427398,
+        -0.0003195924098615688
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.11147519547705195,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance."
+    },
+    {
+      "directory": "results/okura_eval_20261001_final_pitch60",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 561,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 0.9365179538726807,
+        "left_shoulder_roll_joint": 0.7114806771278381,
+        "left_shoulder_yaw_joint": 2.218528985977173,
+        "left_elbow_joint": 0.591422975063324,
+        "left_wrist_roll_joint": 1.3866201639175415,
+        "left_wrist_pitch_joint": 1.4291892051696777,
+        "left_wrist_yaw_joint": 0.7281458377838135,
+        "right_shoulder_pitch_joint": 1.6417489051818848,
+        "right_shoulder_roll_joint": 1.5583207607269287,
+        "right_shoulder_yaw_joint": 1.9267197847366333,
+        "right_elbow_joint": 1.544503092765808,
+        "right_wrist_roll_joint": 1.1075907945632935,
+        "right_wrist_pitch_joint": 2.0966336727142334,
+        "right_wrist_yaw_joint": 2.136540651321411,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.016666666666666666,
+      "inference_median_host_seconds": 0.6298778519994812,
+      "arm_tracking_error_p95_rad": 0.0628404140472412,
+      "arm_tracking_error_max_rad": 0.11397555470466614,
+      "right_gripper_tracking_error_p95_motor_rad": 0.101104736328125,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -7.536270902608333e-05,
+        0.0001146641973427398,
+        -0.0003195924098615688
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.10766039713378825,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance."
+    },
+    {
+      "directory": "results/okura_eval_20261001_final_visible",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 561,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.205907940864563,
+        "left_shoulder_roll_joint": 0.6936067342758179,
+        "left_shoulder_yaw_joint": 1.1954236030578613,
+        "left_elbow_joint": 0.7946070432662964,
+        "left_wrist_roll_joint": 0.3491820991039276,
+        "left_wrist_pitch_joint": 1.0755224227905273,
+        "left_wrist_yaw_joint": 0.5995721817016602,
+        "right_shoulder_pitch_joint": 1.9270479679107666,
+        "right_shoulder_roll_joint": 0.7672895789146423,
+        "right_shoulder_yaw_joint": 2.008629083633423,
+        "right_elbow_joint": 1.544503092765808,
+        "right_wrist_roll_joint": 1.140068769454956,
+        "right_wrist_pitch_joint": 2.499640703201294,
+        "right_wrist_yaw_joint": 0.8523494005203247,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.0375,
+      "inference_median_host_seconds": 0.6194023120006023,
+      "arm_tracking_error_p95_rad": 0.0588817149400711,
+      "arm_tracking_error_max_rad": 0.10019176006317143,
+      "right_gripper_tracking_error_p95_motor_rad": 0.1230001449584961,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -2.3138594161586923e-05,
+        -0.0006411100528989355,
+        -0.0003534780341981625
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.1923645900859315,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance."
+    }
+  ],
+  "surface_gaps": [
+    {
+      "directory": "results/okura_eval_20261001_final_pitch60",
+      "min_surface_gap_each_right_finger_m": [
+        0.0015023252059297358,
+        0.012958056201069153
+      ],
+      "closest_same_time_pair_gap_m": [
+        0.00884182007878274,
+        0.014900271432208253
+      ],
+      "closest_time_sim_s": 8.901999999999642,
+      "measured_right_gripper_at_closest_motor_rad": 2.3320000171661377,
+      "note": "Signed collision-surface distances at video sampling rate, including object stem; positive means separation."
+    },
+    {
+      "directory": "results/okura_eval_20261001_final_plain100",
+      "min_surface_gap_each_right_finger_m": [
+        0.003613456670597544,
+        -0.00012521480825095443
+      ],
+      "closest_same_time_pair_gap_m": [
+        0.017327344419864697,
+        0.014705823092292951
+      ],
+      "closest_time_sim_s": 6.901999999999462,
+      "measured_right_gripper_at_closest_motor_rad": 2.700000047683716,
+      "note": "Signed collision-surface distances at video sampling rate, including object stem; positive means separation."
+    },
+    {
+      "directory": "results/okura_eval_20261001_final_plain30",
+      "min_surface_gap_each_right_finger_m": [
+        0.009364363181291874,
+        0.0035962995808606953
+      ],
+      "closest_same_time_pair_gap_m": [
+        0.009364363181291874,
+        0.0035962995808606953
+      ],
+      "closest_time_sim_s": 18.100000000000847,
+      "measured_right_gripper_at_closest_motor_rad": 0.36800000071525574,
+      "note": "Signed collision-surface distances at video sampling rate, including object stem; positive means separation."
+    },
+    {
+      "directory": "results/okura_eval_20261001_final_visible",
+      "min_surface_gap_each_right_finger_m": [
+        0.03918762689863555,
+        0.11813620996825064
+      ],
+      "closest_same_time_pair_gap_m": [
+        0.0510640379316581,
+        0.11813620996825064
+      ],
+      "closest_time_sim_s": 10.300000000000109,
+      "measured_right_gripper_at_closest_motor_rad": 3.805000066757202,
+      "note": "Signed collision-surface distances at video sampling rate, including object stem; positive means separation."
+    }
+  ],
+  "image_sensitivity": {
+    "physical_execution": false,
+    "state_fixed_from": "results/okura_eval_20261001_final_plain100/input_001.npz",
+    "meaning": "Input sensitivity only; alternate RGBs are not calibrated camera observations for this state.",
+    "comparisons": {
+      "pitch60": {
+        "arm_rms_difference_rad": 0.09180767089128494,
+        "right_gripper_rms_difference_motor_rad": 1.1751514673233032
+      },
+      "visible_object": {
+        "arm_rms_difference_rad": 0.05720275640487671,
+        "right_gripper_rms_difference_motor_rad": 0.8789510130882263
+      },
+      "black_diagnostic": {
+        "arm_rms_difference_rad": 0.13805845379829407,
+        "right_gripper_rms_difference_motor_rad": 2.1672890186309814
+      }
+    }
+  },
+  "mechanical_report": {
+    "completed": true,
+    "physical_grasp_tested": false,
+    "grasp_success": false,
+    "mode": "mechanical",
+    "camera_calibrated": false,
+    "base_fixed": true,
+    "object_attached": false,
+    "error": null,
+    "watchdog_test_requested": true,
+    "watchdog_test_passed": true,
+    "max_lift_with_two_finger_contact_seconds": 0.0,
+    "max_object_lift_m": 0.0,
+    "max_finger_contacts": 0,
+    "act_actions_executed": 0,
+    "chunks": 0,
+    "inference_seconds": [],
+    "arm_limit_clips": 0,
+    "body_watchdog_events": 1,
+    "finger_stale_steps": 161,
+    "invalid_body_commands": 0,
+    "invalid_hand_commands": 0,
+    "mechanical_positions_motor_rad": {
+      "open": [
+        5.400000095367432,
+        5.400000095367432
+      ],
+      "closed": [
+        0.0,
+        0.0
+      ],
+      "reopened": [
+        5.400000095367432,
+        5.400000095367432
+      ]
+    },
+    "mechanical_passed": true,
+    "max_arm_motion_rad": 0.2115454077720642,
+    "sim_seconds": 7.201999999999429,
+    "wall_seconds": 14.46145083400188,
+    "box_initial_position": [
+      0.4,
+      -0.15,
+      0.755
+    ],
+    "object_kind": "box",
+    "action_rate_hz": 30,
+    "execute_steps_per_chunk": 100,
+    "arm_target_speed_limit_rad_s": 1.5,
+    "encoder_slide_resolution_m": 0.001,
+    "note": "Local Dex1 MJCF from official URDF. Camera/table/object are uncalibrated; no training or object attachment."
+  },
+  "artifact_checks": {
+    "baseline": {
+      "decoded_video_frames": 201,
+      "trajectory_finite": true
+    },
+    "final_plain100": {
+      "decoded_video_frames": 201,
+      "trajectory_finite": true
+    },
+    "final_plain30": {
+      "decoded_video_frames": 201,
+      "trajectory_finite": true
+    },
+    "final_pitch60": {
+      "decoded_video_frames": 201,
+      "trajectory_finite": true
+    },
+    "final_visible": {
+      "decoded_video_frames": 201,
+      "trajectory_finite": true
+    },
+    "final_mechanical": {
+      "decoded_video_frames": 73,
+      "trajectory_finite": true
+    }
+  },
+  "test_validation": "20 passed; Ruff and git diff --check passed",
+  "excluded_trials": {
+    "plain100": "scene initialization error, no policy execution",
+    "plain30": "scene initialization error, no policy execution",
+    "plain100_v2": "DDS gripper state timeout; interrupted at 8.002 simulation seconds",
+    "plain30_v2": "DDS gripper state timeout; interrupted at 8.802 simulation seconds"
+  },
+  "source_hashes": {
+    "baseline": {
+      "experiments/okura/control.py": "ec0a8eadf071ca036d9542a979ca669cb467975ae5ff247da81a5a68c3d37203",
+      "experiments/okura/infer.py": "b67607b10799e484a311127a110a0c406a9d309733498ece53bfe09abbc23001",
+      "experiments/okura/scene.py": "7f890ee403ed5841b01ffb4d2c3b5845f7a2deffdd669720f772f9e35a6a6e7f",
+      "g1_backend/dex1.py": "5390f0a71c7e7e409ada5d946a8cf3e8d2a9caf98bbb0731150a4b5a72805ebd",
+      "experiments/okura/transfer.py": "f4c848423c644d1ec7be58abe706c0014f7e1d2daff59a953e6530e5ad9826f4",
+      "g1_backend/skills/transfer.py": "c1951150f05ec3a7add5f7123078f2264dafc5363755c5b5002b9f94c838c5f0",
+      "configs/dex1.sources.json": "7310f723e605fffe19c73422a6a197318605a95e82a1b4633bccab823b44265f",
+      "configs/sources.lock.json": "ccb84b466b3d840e4335b398014ca848bbc8a59f7bb42a32f1ac61ff7fb19786",
+      "src/g1_mujoco/mjcf/g1_29dof.xml": "423e28bd718b19f7a65cda539b6f794ddbb268b4b9bdbd85f4bd982b30729617"
+    },
+    "final_plain100": {
+      "experiments/okura/control.py": "d56c88a1c5c1d04b0a17b1b494e3dd2bc547041037a3ad7124d291ab69c613aa",
+      "experiments/okura/infer.py": "b67607b10799e484a311127a110a0c406a9d309733498ece53bfe09abbc23001",
+      "experiments/okura/scene.py": "0b617c2bb37cab04524d06bd20a890bff74b83db02faed2d91843fc5b41a3d93",
+      "g1_backend/dex1.py": "5390f0a71c7e7e409ada5d946a8cf3e8d2a9caf98bbb0731150a4b5a72805ebd",
+      "experiments/okura/transfer.py": "f4c848423c644d1ec7be58abe706c0014f7e1d2daff59a953e6530e5ad9826f4",
+      "g1_backend/skills/transfer.py": "c1951150f05ec3a7add5f7123078f2264dafc5363755c5b5002b9f94c838c5f0",
+      "configs/dex1.sources.json": "7310f723e605fffe19c73422a6a197318605a95e82a1b4633bccab823b44265f",
+      "configs/sources.lock.json": "ccb84b466b3d840e4335b398014ca848bbc8a59f7bb42a32f1ac61ff7fb19786",
+      "src/g1_mujoco/mjcf/g1_29dof.xml": "423e28bd718b19f7a65cda539b6f794ddbb268b4b9bdbd85f4bd982b30729617"
+    },
+    "final_plain30": {
+      "experiments/okura/control.py": "d56c88a1c5c1d04b0a17b1b494e3dd2bc547041037a3ad7124d291ab69c613aa",
+      "experiments/okura/infer.py": "b67607b10799e484a311127a110a0c406a9d309733498ece53bfe09abbc23001",
+      "experiments/okura/scene.py": "0b617c2bb37cab04524d06bd20a890bff74b83db02faed2d91843fc5b41a3d93",
+      "g1_backend/dex1.py": "5390f0a71c7e7e409ada5d946a8cf3e8d2a9caf98bbb0731150a4b5a72805ebd",
+      "experiments/okura/transfer.py": "f4c848423c644d1ec7be58abe706c0014f7e1d2daff59a953e6530e5ad9826f4",
+      "g1_backend/skills/transfer.py": "c1951150f05ec3a7add5f7123078f2264dafc5363755c5b5002b9f94c838c5f0",
+      "configs/dex1.sources.json": "7310f723e605fffe19c73422a6a197318605a95e82a1b4633bccab823b44265f",
+      "configs/sources.lock.json": "ccb84b466b3d840e4335b398014ca848bbc8a59f7bb42a32f1ac61ff7fb19786",
+      "src/g1_mujoco/mjcf/g1_29dof.xml": "423e28bd718b19f7a65cda539b6f794ddbb268b4b9bdbd85f4bd982b30729617"
+    },
+    "final_pitch60": {
+      "experiments/okura/control.py": "d56c88a1c5c1d04b0a17b1b494e3dd2bc547041037a3ad7124d291ab69c613aa",
+      "experiments/okura/infer.py": "b67607b10799e484a311127a110a0c406a9d309733498ece53bfe09abbc23001",
+      "experiments/okura/scene.py": "0b617c2bb37cab04524d06bd20a890bff74b83db02faed2d91843fc5b41a3d93",
+      "g1_backend/dex1.py": "5390f0a71c7e7e409ada5d946a8cf3e8d2a9caf98bbb0731150a4b5a72805ebd",
+      "experiments/okura/transfer.py": "f4c848423c644d1ec7be58abe706c0014f7e1d2daff59a953e6530e5ad9826f4",
+      "g1_backend/skills/transfer.py": "c1951150f05ec3a7add5f7123078f2264dafc5363755c5b5002b9f94c838c5f0",
+      "configs/dex1.sources.json": "7310f723e605fffe19c73422a6a197318605a95e82a1b4633bccab823b44265f",
+      "configs/sources.lock.json": "ccb84b466b3d840e4335b398014ca848bbc8a59f7bb42a32f1ac61ff7fb19786",
+      "src/g1_mujoco/mjcf/g1_29dof.xml": "423e28bd718b19f7a65cda539b6f794ddbb268b4b9bdbd85f4bd982b30729617"
+    },
+    "final_visible": {
+      "experiments/okura/control.py": "d56c88a1c5c1d04b0a17b1b494e3dd2bc547041037a3ad7124d291ab69c613aa",
+      "experiments/okura/infer.py": "b67607b10799e484a311127a110a0c406a9d309733498ece53bfe09abbc23001",
+      "experiments/okura/scene.py": "0b617c2bb37cab04524d06bd20a890bff74b83db02faed2d91843fc5b41a3d93",
+      "g1_backend/dex1.py": "5390f0a71c7e7e409ada5d946a8cf3e8d2a9caf98bbb0731150a4b5a72805ebd",
+      "experiments/okura/transfer.py": "f4c848423c644d1ec7be58abe706c0014f7e1d2daff59a953e6530e5ad9826f4",
+      "g1_backend/skills/transfer.py": "c1951150f05ec3a7add5f7123078f2264dafc5363755c5b5002b9f94c838c5f0",
+      "configs/dex1.sources.json": "7310f723e605fffe19c73422a6a197318605a95e82a1b4633bccab823b44265f",
+      "configs/sources.lock.json": "ccb84b466b3d840e4335b398014ca848bbc8a59f7bb42a32f1ac61ff7fb19786",
+      "src/g1_mujoco/mjcf/g1_29dof.xml": "423e28bd718b19f7a65cda539b6f794ddbb268b4b9bdbd85f4bd982b30729617"
+    },
+    "final_mechanical": {
+      "experiments/okura/control.py": "d56c88a1c5c1d04b0a17b1b494e3dd2bc547041037a3ad7124d291ab69c613aa",
+      "experiments/okura/infer.py": "b67607b10799e484a311127a110a0c406a9d309733498ece53bfe09abbc23001",
+      "experiments/okura/scene.py": "0b617c2bb37cab04524d06bd20a890bff74b83db02faed2d91843fc5b41a3d93",
+      "g1_backend/dex1.py": "5390f0a71c7e7e409ada5d946a8cf3e8d2a9caf98bbb0731150a4b5a72805ebd",
+      "experiments/okura/transfer.py": "f4c848423c644d1ec7be58abe706c0014f7e1d2daff59a953e6530e5ad9826f4",
+      "g1_backend/skills/transfer.py": "c1951150f05ec3a7add5f7123078f2264dafc5363755c5b5002b9f94c838c5f0",
+      "configs/dex1.sources.json": "7310f723e605fffe19c73422a6a197318605a95e82a1b4633bccab823b44265f",
+      "configs/sources.lock.json": "ccb84b466b3d840e4335b398014ca848bbc8a59f7bb42a32f1ac61ff7fb19786",
+      "src/g1_mujoco/mjcf/g1_29dof.xml": "423e28bd718b19f7a65cda539b6f794ddbb268b4b9bdbd85f4bd982b30729617"
+    }
+  }
+}

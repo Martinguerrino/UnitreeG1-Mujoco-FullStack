@@ -226,7 +226,9 @@ class NavigationTransport:
             'joint_positions',
         )
         self.socket.sendto(
-            json.dumps({key: telemetry[key] for key in keys}).encode(), self.destination
+            json.dumps({**{key: telemetry[key] for key in keys},
+                        'torso_imu': telemetry.get('torso_imu', []),
+                        **({'imu': telemetry['imu']} if 'imu' in telemetry else {})}).encode(), self.destination
         )
         sensors = telemetry.get('sensors')
         if sensors:

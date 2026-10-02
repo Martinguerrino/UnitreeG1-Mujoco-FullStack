@@ -1,0 +1,47 @@
+/**:
+  ros__parameters:
+    use_sim_time: true
+    feature_extract_enable: false
+    point_filter_num: 1
+    max_iteration: 4
+    filter_size_surf: 0.12
+    filter_size_map: 0.12
+    cube_side_length: 100.0
+    runtime_pos_log_enable: false
+    common:
+      lid_topic: /mid360/points
+      imu_topic: /imu/torso
+      time_sync_en: false
+      time_offset_lidar_to_imu: 0.0
+    preprocess:
+      # Generic PointXYZI, NOT Livox timed packets: MuJoCo snapshots are instantaneous.
+      lidar_type: 0
+      instantaneous_cloud: true
+      scan_line: 9
+      blind: 0.3
+      timestamp_unit: 0
+      scan_rate: 10
+    mapping:
+      acc_cov: 0.01
+      gyr_cov: 0.001
+      b_acc_cov: 0.0001
+      b_gyr_cov: 0.00001
+      fov_degree: 360.0
+      det_range: 20.0
+      extrinsic_est_en: false
+      # LiDAR in secondary IMU axes; both are fixed on the upper body.
+      extrinsic_T: [0.0398735, 0.00227, 0.28726]
+      extrinsic_R: [0.999194395, 0.0, 0.040131793,
+                    0.0, 1.0, 0.0,
+                    -0.040131793, 0.0, 0.999194395]
+    publish:
+      path_en: true
+      effect_map_en: false
+      map_en: false
+      scan_publish_en: true
+      dense_publish_en: true
+      scan_bodyframe_pub_en: false
+    pcd_save:
+      # Our voxel map exporter bounds memory and writes the public map frame.
+      pcd_save_en: false
+      interval: -1

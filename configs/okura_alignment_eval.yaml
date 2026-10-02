@@ -1,0 +1,39 @@
+# Experimental image landmark fit; not a calibrated original training reset.
+basket_position:
+- 0.4378774691267757
+- 0.21258155034163034
+- 0.731
+carry_speed: 0.3
+carry_target:
+- 0.0
+- 1.2
+- 0.0
+carry_timeout: 30.0
+carry_waypoints:
+- - -0.3
+  - 0.0
+  - 0.0
+- - -0.3
+  - 1.2
+  - 0.0
+- - 0.0
+  - 1.2
+  - 0.0
+dataset: sotata/okura-pick-06102026
+dataset_revision: b47cc2ec337360154a4b8e44ded18ba40da520e3
+demonstration_fixture: true
+initial_right_state:
+- -0.2939730585
+- 0.0765911862
+- 0.1739749908
+- 0.767997086
+- -0.3397168219
+- -0.8085756898
+- -0.476157248
+- 0.0189600028
+object_kind: okra
+object_position:
+- 0.5259419970158319
+- -0.11503681774076409
+- 0.76
+pick_timeout: 25.0

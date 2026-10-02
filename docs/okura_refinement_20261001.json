@@ -1,0 +1,2543 @@
+{
+  "policy_trials": [
+    {
+      "directory": "results/okura_refinement_20261001/aligned",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 561,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 1.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 1.5,
+        "reset_pose": "default",
+        "action_timing": "legacy",
+        "camera_pitch": 69.9999999999998,
+        "camera_position": [
+          0.19999999999999998,
+          0.08921594707782389,
+          0.482061034852024
+        ],
+        "camera_fovy": 60.04311132149069,
+        "basket_scale": 1.4,
+        "async_commands": null,
+        "placement_speed_window": null,
+        "speed_limit_clips": 65
+      },
+      "observation_to_chunk_median_sim_seconds": 0.257999999999857,
+      "image_age_at_observation_median_sim_seconds": 0.041999999999995374,
+      "stale_action_steps_median": 7.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.5583975315093994,
+        "left_shoulder_roll_joint": 0.7785084247589111,
+        "left_shoulder_yaw_joint": 0.42202097177505493,
+        "left_elbow_joint": 1.2724007368087769,
+        "left_wrist_roll_joint": 1.2230985164642334,
+        "left_wrist_pitch_joint": 0.7909069061279297,
+        "left_wrist_yaw_joint": 0.10786594450473785,
+        "right_shoulder_pitch_joint": 1.9450949430465698,
+        "right_shoulder_roll_joint": 1.1176131963729858,
+        "right_shoulder_yaw_joint": 2.5181541442871094,
+        "right_elbow_joint": 1.9380078315734863,
+        "right_wrist_roll_joint": 1.8253731727600098,
+        "right_wrist_pitch_joint": 2.2649006843566895,
+        "right_wrist_yaw_joint": 0.7301167845726013,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.04296875,
+      "inference_median_host_seconds": 0.6230857669979741,
+      "arm_tracking_error_p95_rad": 0.060525566339492784,
+      "arm_tracking_error_max_rad": 0.10563610563986003,
+      "right_gripper_tracking_error_p95_motor_rad": 0.0693659782409668,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -0.0008359483494199127,
+        0.0020276376120108713,
+        -0.0036610490158243136
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.17578763405160502,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "aligned",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.02552196756005287,
+        0.03748684749007225,
+        0.1686916947364807
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/aligned_park",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 561,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 1.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 1.5,
+        "reset_pose": "park-left",
+        "action_timing": "legacy",
+        "camera_pitch": 69.9999999999998,
+        "camera_position": [
+          0.19999999999999998,
+          0.08921594707782389,
+          0.482061034852024
+        ],
+        "camera_fovy": 60.04311132149069,
+        "basket_scale": 1.4,
+        "async_commands": null,
+        "placement_speed_window": null,
+        "speed_limit_clips": 210
+      },
+      "observation_to_chunk_median_sim_seconds": 0.2620000000000875,
+      "image_age_at_observation_median_sim_seconds": 0.04800000000001603,
+      "stale_action_steps_median": 7.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 2.012979030609131,
+        "left_shoulder_roll_joint": 1.2421869039535522,
+        "left_shoulder_yaw_joint": 1.196211338043213,
+        "left_elbow_joint": 0.7820849418640137,
+        "left_wrist_roll_joint": 1.571480393409729,
+        "left_wrist_pitch_joint": 5.801844120025635,
+        "left_wrist_yaw_joint": 0.6391382217407227,
+        "right_shoulder_pitch_joint": 1.6441283226013184,
+        "right_shoulder_roll_joint": 0.7451208233833313,
+        "right_shoulder_yaw_joint": 1.0784434080123901,
+        "right_elbow_joint": 1.5382136106491089,
+        "right_wrist_roll_joint": 0.7653408646583557,
+        "right_wrist_pitch_joint": 0.5217254757881165,
+        "right_wrist_yaw_joint": 0.7241223454475403,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.0625,
+      "inference_median_host_seconds": 0.6171526469988748,
+      "arm_tracking_error_p95_rad": 0.4682176500558852,
+      "arm_tracking_error_max_rad": 0.5562788769602776,
+      "right_gripper_tracking_error_p95_motor_rad": 0.07191646099090576,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -0.0008359483494199127,
+        0.0020276376120108713,
+        -0.0036610490158243136
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.20195918541064806,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "aligned_park",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.029734905809164047,
+        0.08525960892438889,
+        0.2761237919330597
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/async_baseline",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 558,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 1.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 1.5,
+        "reset_pose": "default",
+        "action_timing": "legacy",
+        "camera_pitch": null,
+        "camera_position": null,
+        "camera_fovy": null,
+        "basket_scale": 1.0,
+        "async_commands": true,
+        "placement_speed_window": 0.0,
+        "speed_limit_clips": 100
+      },
+      "observation_to_chunk_median_sim_seconds": 0.3540000000000394,
+      "image_age_at_observation_median_sim_seconds": 0.04299999999999127,
+      "stale_action_steps_median": 10.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.1323299407958984,
+        "left_shoulder_roll_joint": 0.860018789768219,
+        "left_shoulder_yaw_joint": 0.8238101601600647,
+        "left_elbow_joint": 0.9582479596138,
+        "left_wrist_roll_joint": 0.18161308765411377,
+        "left_wrist_pitch_joint": 1.305729866027832,
+        "left_wrist_yaw_joint": 0.5007815361022949,
+        "right_shoulder_pitch_joint": 2.321523427963257,
+        "right_shoulder_roll_joint": 1.0233039855957031,
+        "right_shoulder_yaw_joint": 1.5510727167129517,
+        "right_elbow_joint": 1.7503721714019775,
+        "right_wrist_roll_joint": 0.8471789360046387,
+        "right_wrist_pitch_joint": 1.0388760566711426,
+        "right_wrist_yaw_joint": 0.72589111328125,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.0,
+      "inference_median_host_seconds": 0.5767305780009337,
+      "arm_tracking_error_p95_rad": 0.05556048154830932,
+      "arm_tracking_error_max_rad": 0.11354604959487924,
+      "right_gripper_tracking_error_p95_motor_rad": 0.12271308898925781,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -7.536270902608333e-05,
+        0.0001146641973427398,
+        -0.0003195924098615688
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.11513319818612154,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "async_baseline",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.005533800460398197,
+        0.02982008270919323,
+        0.17027106881141663
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/async_ensemble",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 1,
+      "max_object_lift_m": 0.0006733179256313004,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 558,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 1.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 1.5,
+        "reset_pose": "default",
+        "action_timing": "ensemble",
+        "camera_pitch": null,
+        "camera_position": null,
+        "camera_fovy": null,
+        "basket_scale": 1.0,
+        "async_commands": true,
+        "placement_speed_window": 0.0,
+        "speed_limit_clips": 25
+      },
+      "observation_to_chunk_median_sim_seconds": 0.35500000000011855,
+      "image_age_at_observation_median_sim_seconds": 0.027999999999997804,
+      "stale_action_steps_median": 10.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.3671231269836426,
+        "left_shoulder_roll_joint": 0.9627270102500916,
+        "left_shoulder_yaw_joint": 1.1541379690170288,
+        "left_elbow_joint": 1.1192619800567627,
+        "left_wrist_roll_joint": 0.42920127511024475,
+        "left_wrist_pitch_joint": 0.8354016542434692,
+        "left_wrist_yaw_joint": 0.6429073214530945,
+        "right_shoulder_pitch_joint": 1.9723366498947144,
+        "right_shoulder_roll_joint": 1.5019078254699707,
+        "right_shoulder_yaw_joint": 1.904884934425354,
+        "right_elbow_joint": 1.6029276847839355,
+        "right_wrist_roll_joint": 1.1183724403381348,
+        "right_wrist_pitch_joint": 0.9602731466293335,
+        "right_wrist_yaw_joint": 0.8757369518280029,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.004464285714285714,
+      "inference_median_host_seconds": 0.611168314499082,
+      "arm_tracking_error_p95_rad": 0.05344152270433456,
+      "arm_tracking_error_max_rad": 0.11571630470705463,
+      "right_gripper_tracking_error_p95_motor_rad": 0.12903738021850586,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -0.014545934126973858,
+        -0.007183050736314811,
+        0.0005756359986388571
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.1155341205417568,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "async_ensemble",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.0031596249900758266,
+        0.064407579600811,
+        0.19437767565250397
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/async_gain2",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 559,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 2.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 1.5,
+        "reset_pose": "default",
+        "action_timing": "legacy",
+        "camera_pitch": null,
+        "camera_position": null,
+        "camera_fovy": null,
+        "basket_scale": 1.0,
+        "async_commands": true,
+        "placement_speed_window": 0.0,
+        "speed_limit_clips": 86
+      },
+      "observation_to_chunk_median_sim_seconds": 0.34400000000007136,
+      "image_age_at_observation_median_sim_seconds": 0.04000000000000403,
+      "stale_action_steps_median": 10.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.4462416172027588,
+        "left_shoulder_roll_joint": 0.9747277498245239,
+        "left_shoulder_yaw_joint": 1.1194605827331543,
+        "left_elbow_joint": 1.138529896736145,
+        "left_wrist_roll_joint": 0.2637723684310913,
+        "left_wrist_pitch_joint": 0.8222741484642029,
+        "left_wrist_yaw_joint": 0.34708935022354126,
+        "right_shoulder_pitch_joint": 2.2261669635772705,
+        "right_shoulder_roll_joint": 1.6007764339447021,
+        "right_shoulder_yaw_joint": 1.7137788534164429,
+        "right_elbow_joint": 1.967245101928711,
+        "right_wrist_roll_joint": 0.9750382900238037,
+        "right_wrist_pitch_joint": 1.064520001411438,
+        "right_wrist_yaw_joint": 0.9993293285369873,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.004166666666666667,
+      "inference_median_host_seconds": 0.6498168450016237,
+      "arm_tracking_error_p95_rad": 0.03046019673347473,
+      "arm_tracking_error_max_rad": 0.1270376443862915,
+      "right_gripper_tracking_error_p95_motor_rad": 0.10948407649993896,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -7.536270902608333e-05,
+        0.0001146641973427398,
+        -0.0003195924098615688
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.11732047915586169,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "async_gain2",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.006361660081893206,
+        0.061518218368291855,
+        0.19172966480255127
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/async_transfer",
+      "valid_policy_episode": true,
+      "sim_seconds": 25.00199999999702,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 712,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 2.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 3.0,
+        "reset_pose": "default",
+        "action_timing": "compensate",
+        "camera_pitch": 69.9999999999998,
+        "camera_position": [
+          0.19999999999999998,
+          0.08921594707782389,
+          0.482061034852024
+        ],
+        "camera_fovy": 60.04311132149069,
+        "basket_scale": 1.4,
+        "async_commands": true,
+        "placement_speed_window": 0.1,
+        "speed_limit_clips": 10
+      },
+      "observation_to_chunk_median_sim_seconds": 0.2980000000000995,
+      "image_age_at_observation_median_sim_seconds": 0.0019999999999988916,
+      "stale_action_steps_median": 8.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.612445592880249,
+        "left_shoulder_roll_joint": 0.7786412835121155,
+        "left_shoulder_yaw_joint": 0.497669517993927,
+        "left_elbow_joint": 1.3415420055389404,
+        "left_wrist_roll_joint": 1.2003535032272339,
+        "left_wrist_pitch_joint": 0.5293682813644409,
+        "left_wrist_yaw_joint": 0.16496334969997406,
+        "right_shoulder_pitch_joint": 1.5783697366714478,
+        "right_shoulder_roll_joint": 0.8935450911521912,
+        "right_shoulder_yaw_joint": 2.2322442531585693,
+        "right_elbow_joint": 1.614548683166504,
+        "right_wrist_roll_joint": 1.346412181854248,
+        "right_wrist_pitch_joint": 2.4135830402374268,
+        "right_wrist_yaw_joint": 0.7360672950744629,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.049342105263157895,
+      "inference_median_host_seconds": 0.6002429850013868,
+      "arm_tracking_error_p95_rad": 0.038513663411140445,
+      "arm_tracking_error_max_rad": 0.07300315867178142,
+      "right_gripper_tracking_error_p95_motor_rad": 0.1230001449584961,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -0.0008671262484628572,
+        0.002027633780525631,
+        -0.0036627499392866136
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.17120509423422808,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "async_transfer",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.028693603351712227,
+        0.06124383024871349,
+        0.18420180678367615
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/baseline",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 1,
+      "max_object_lift_m": 0.00029346821392095546,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 561,
+      "body_watchdog_events": 1,
+      "finger_stale_steps": 1,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": false,
+      "clean_policy_episode": false,
+      "experimental_parameters": {
+        "arm_gain_scale": 1.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 1.5,
+        "reset_pose": "default",
+        "action_timing": "legacy",
+        "camera_pitch": null,
+        "camera_position": null,
+        "camera_fovy": null,
+        "basket_scale": 1.0,
+        "async_commands": null,
+        "placement_speed_window": null,
+        "speed_limit_clips": 99
+      },
+      "observation_to_chunk_median_sim_seconds": 0.27600000000009217,
+      "image_age_at_observation_median_sim_seconds": 0.0500000000000167,
+      "stale_action_steps_median": 8.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.1353672742843628,
+        "left_shoulder_roll_joint": 0.8806869983673096,
+        "left_shoulder_yaw_joint": 0.8479076027870178,
+        "left_elbow_joint": 0.9326732158660889,
+        "left_wrist_roll_joint": 0.34682998061180115,
+        "left_wrist_pitch_joint": 1.3575232028961182,
+        "left_wrist_yaw_joint": 0.4117894172668457,
+        "right_shoulder_pitch_joint": 2.30875563621521,
+        "right_shoulder_roll_joint": 0.9101404547691345,
+        "right_shoulder_yaw_joint": 1.5787311792373657,
+        "right_elbow_joint": 1.7503552436828613,
+        "right_wrist_roll_joint": 0.8345390558242798,
+        "right_wrist_pitch_joint": 1.517865777015686,
+        "right_wrist_yaw_joint": 0.7766189575195312,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.0,
+      "inference_median_host_seconds": 0.6459579820002546,
+      "arm_tracking_error_p95_rad": 0.05637387633323669,
+      "arm_tracking_error_max_rad": 0.09438376426696782,
+      "right_gripper_tracking_error_p95_motor_rad": 0.09815073013305664,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -0.002047070415020613,
+        0.006228352296484468,
+        3.7759043087448596e-05
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.11141840066288018,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "baseline",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.005510437302291393,
+        0.035495586693286896,
+        0.1851816177368164
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/combined",
+      "valid_policy_episode": true,
+      "sim_seconds": 25.00199999999702,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 711,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 2.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 3.0,
+        "reset_pose": "default",
+        "action_timing": "compensate",
+        "camera_pitch": 69.9999999999998,
+        "camera_position": [
+          0.19999999999999998,
+          0.08921594707782389,
+          0.482061034852024
+        ],
+        "camera_fovy": 60.04311132149069,
+        "basket_scale": 1.4,
+        "async_commands": null,
+        "placement_speed_window": null,
+        "speed_limit_clips": 8
+      },
+      "observation_to_chunk_median_sim_seconds": 0.2639999999998537,
+      "image_age_at_observation_median_sim_seconds": 0.039999999999995595,
+      "stale_action_steps_median": 7.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.610347032546997,
+        "left_shoulder_roll_joint": 0.771024227142334,
+        "left_shoulder_yaw_joint": 0.5979292988777161,
+        "left_elbow_joint": 1.3412888050079346,
+        "left_wrist_roll_joint": 1.111263394355774,
+        "left_wrist_pitch_joint": 0.5619310736656189,
+        "left_wrist_yaw_joint": 0.17530974745750427,
+        "right_shoulder_pitch_joint": 1.5783697366714478,
+        "right_shoulder_roll_joint": 0.8963806629180908,
+        "right_shoulder_yaw_joint": 2.351659059524536,
+        "right_elbow_joint": 1.614548683166504,
+        "right_wrist_roll_joint": 1.5184648036956787,
+        "right_wrist_pitch_joint": 2.43852162361145,
+        "right_wrist_yaw_joint": 0.7360672950744629,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.049342105263157895,
+      "inference_median_host_seconds": 0.6263953399975435,
+      "arm_tracking_error_p95_rad": 0.03960816860198974,
+      "arm_tracking_error_max_rad": 0.07296875934116542,
+      "right_gripper_tracking_error_p95_motor_rad": 0.1230001449584961,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -0.0008671262484628572,
+        0.002027633780525631,
+        -0.0036627499392866136
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.16852414497942697,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "combined",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.02799508348107338,
+        0.06400586292147636,
+        0.1852799504995346
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/compensate",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 560,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 1.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 1.5,
+        "reset_pose": "default",
+        "action_timing": "compensate",
+        "camera_pitch": null,
+        "camera_position": null,
+        "camera_fovy": null,
+        "basket_scale": 1.0,
+        "async_commands": null,
+        "placement_speed_window": null,
+        "speed_limit_clips": 88
+      },
+      "observation_to_chunk_median_sim_seconds": 0.2880000000000962,
+      "image_age_at_observation_median_sim_seconds": 0.052000000000017366,
+      "stale_action_steps_median": 8.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.5111724138259888,
+        "left_shoulder_roll_joint": 1.161835789680481,
+        "left_shoulder_yaw_joint": 1.2779616117477417,
+        "left_elbow_joint": 1.3669981956481934,
+        "left_wrist_roll_joint": 0.4392523169517517,
+        "left_wrist_pitch_joint": 1.077688217163086,
+        "left_wrist_yaw_joint": 0.8630476593971252,
+        "right_shoulder_pitch_joint": 2.019753932952881,
+        "right_shoulder_roll_joint": 1.56786048412323,
+        "right_shoulder_yaw_joint": 1.8429319858551025,
+        "right_elbow_joint": 1.6212806701660156,
+        "right_wrist_roll_joint": 1.2926384210586548,
+        "right_wrist_pitch_joint": 1.1678732633590698,
+        "right_wrist_yaw_joint": 1.2239011526107788,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.008333333333333333,
+      "inference_median_host_seconds": 0.6466431039989402,
+      "arm_tracking_error_p95_rad": 0.057227522134780884,
+      "arm_tracking_error_max_rad": 0.12046325206756592,
+      "right_gripper_tracking_error_p95_motor_rad": 0.09904029965400696,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -7.536270902608333e-05,
+        0.0001146641973427398,
+        -0.0003195924098615688
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.1139980919406504,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "compensate",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.004635573830455542,
+        0.06740987300872803,
+        0.18673831224441528
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/ensemble",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 1,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 561,
+      "body_watchdog_events": 1,
+      "finger_stale_steps": 1,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": false,
+      "clean_policy_episode": false,
+      "experimental_parameters": {
+        "arm_gain_scale": 1.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 1.5,
+        "reset_pose": "default",
+        "action_timing": "ensemble",
+        "camera_pitch": null,
+        "camera_position": null,
+        "camera_fovy": null,
+        "basket_scale": 1.0,
+        "async_commands": null,
+        "placement_speed_window": null,
+        "speed_limit_clips": 27
+      },
+      "observation_to_chunk_median_sim_seconds": 0.29600000000009885,
+      "image_age_at_observation_median_sim_seconds": 0.031999999999996476,
+      "stale_action_steps_median": 8.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.4821363687515259,
+        "left_shoulder_roll_joint": 0.8638828992843628,
+        "left_shoulder_yaw_joint": 1.0488101243972778,
+        "left_elbow_joint": 1.1721678972244263,
+        "left_wrist_roll_joint": 0.4788103699684143,
+        "left_wrist_pitch_joint": 0.8400770425796509,
+        "left_wrist_yaw_joint": 0.5879456400871277,
+        "right_shoulder_pitch_joint": 1.9972413778305054,
+        "right_shoulder_roll_joint": 1.3740447759628296,
+        "right_shoulder_yaw_joint": 1.8698501586914062,
+        "right_elbow_joint": 1.6367182731628418,
+        "right_wrist_roll_joint": 1.14741051197052,
+        "right_wrist_pitch_joint": 0.9194846153259277,
+        "right_wrist_yaw_joint": 0.9599297046661377,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.0,
+      "inference_median_host_seconds": 0.645972176000214,
+      "arm_tracking_error_p95_rad": 0.05464808158154042,
+      "arm_tracking_error_max_rad": 0.09507932907680194,
+      "right_gripper_tracking_error_p95_motor_rad": 0.08818277954392162,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -0.0056372664221222,
+        -0.004531544519271707,
+        -0.00029859847431090714
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.11451179783454184,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "ensemble",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.0038607807364314795,
+        0.055672116577625275,
+        0.18835516273975372
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/gain2",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 561,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 2.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 1.5,
+        "reset_pose": "default",
+        "action_timing": "legacy",
+        "camera_pitch": null,
+        "camera_position": null,
+        "camera_fovy": null,
+        "basket_scale": 1.0,
+        "async_commands": null,
+        "placement_speed_window": null,
+        "speed_limit_clips": 82
+      },
+      "observation_to_chunk_median_sim_seconds": 0.27999999999996916,
+      "image_age_at_observation_median_sim_seconds": 0.05199999999997118,
+      "stale_action_steps_median": 8.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.3007395267486572,
+        "left_shoulder_roll_joint": 1.1577510833740234,
+        "left_shoulder_yaw_joint": 1.3102713823318481,
+        "left_elbow_joint": 1.0774812698364258,
+        "left_wrist_roll_joint": 0.342012882232666,
+        "left_wrist_pitch_joint": 0.7767319083213806,
+        "left_wrist_yaw_joint": 0.5144888758659363,
+        "right_shoulder_pitch_joint": 2.1957061290740967,
+        "right_shoulder_roll_joint": 1.6460496187210083,
+        "right_shoulder_yaw_joint": 1.8169561624526978,
+        "right_elbow_joint": 1.9699552059173584,
+        "right_wrist_roll_joint": 1.0579997301101685,
+        "right_wrist_pitch_joint": 0.9993093609809875,
+        "right_wrist_yaw_joint": 1.100705623626709,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.004166666666666667,
+      "inference_median_host_seconds": 0.6503418630018132,
+      "arm_tracking_error_p95_rad": 0.03072273433208465,
+      "arm_tracking_error_max_rad": 0.13689860701560974,
+      "right_gripper_tracking_error_p95_motor_rad": 0.09867095947265625,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -7.536270902608333e-05,
+        0.0001146641973427398,
+        -0.0003195924098615688
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.11588928506230978,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "gain2",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.005523046478629112,
+        0.0698891431093216,
+        0.1943792849779129
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/mean_reset",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 561,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 1.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 1.5,
+        "reset_pose": "mean",
+        "action_timing": "legacy",
+        "camera_pitch": null,
+        "camera_position": null,
+        "camera_fovy": null,
+        "basket_scale": 1.0,
+        "async_commands": null,
+        "placement_speed_window": null,
+        "speed_limit_clips": 73
+      },
+      "observation_to_chunk_median_sim_seconds": 0.29199999999996784,
+      "image_age_at_observation_median_sim_seconds": 0.04800000000001603,
+      "stale_action_steps_median": 8.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.4497931003570557,
+        "left_shoulder_roll_joint": 1.3198542594909668,
+        "left_shoulder_yaw_joint": 1.384672999382019,
+        "left_elbow_joint": 1.2341457605361938,
+        "left_wrist_roll_joint": 0.39575982093811035,
+        "left_wrist_pitch_joint": 0.9800131916999817,
+        "left_wrist_yaw_joint": 0.7504628300666809,
+        "right_shoulder_pitch_joint": 0.9788861870765686,
+        "right_shoulder_roll_joint": 1.660218596458435,
+        "right_shoulder_yaw_joint": 1.717713713645935,
+        "right_elbow_joint": 1.2953853607177734,
+        "right_wrist_roll_joint": 0.947682797908783,
+        "right_wrist_pitch_joint": 1.5364032983779907,
+        "right_wrist_yaw_joint": 1.3631956577301025,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.008333333333333333,
+      "inference_median_host_seconds": 0.6379747469982249,
+      "arm_tracking_error_p95_rad": 0.06051665514707564,
+      "arm_tracking_error_max_rad": 0.12270593643188477,
+      "right_gripper_tracking_error_p95_motor_rad": 0.10422205924987793,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -7.536270902608333e-05,
+        0.0001146641973427398,
+        -0.0003195924098615688
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.11347496655767844,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "mean_reset",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.003746527247130871,
+        0.06680604815483093,
+        0.19067397713661194
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/reference_transfer",
+      "valid_policy_episode": true,
+      "sim_seconds": 25.00199999999702,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 712,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 2.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 3.0,
+        "reset_pose": "default",
+        "action_timing": "compensate",
+        "camera_pitch": 69.9999999999998,
+        "camera_position": [
+          0.19999999999999998,
+          0.08921594707782389,
+          0.482061034852024
+        ],
+        "camera_fovy": 60.04311132149069,
+        "basket_scale": 1.4,
+        "async_commands": true,
+        "placement_speed_window": 0.1,
+        "speed_limit_clips": 10
+      },
+      "observation_to_chunk_median_sim_seconds": 0.29799999999983484,
+      "image_age_at_observation_median_sim_seconds": 0.0699999999999612,
+      "stale_action_steps_median": 8.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.9800502061843872,
+        "left_shoulder_roll_joint": 1.1018540859222412,
+        "left_shoulder_yaw_joint": 0.5297892689704895,
+        "left_elbow_joint": 1.6169582605361938,
+        "left_wrist_roll_joint": 1.243044137954712,
+        "left_wrist_pitch_joint": 0.40856143832206726,
+        "left_wrist_yaw_joint": 0.18582427501678467,
+        "right_shoulder_pitch_joint": 1.5783697366714478,
+        "right_shoulder_roll_joint": 0.7031356692314148,
+        "right_shoulder_yaw_joint": 2.3667402267456055,
+        "right_elbow_joint": 1.614548683166504,
+        "right_wrist_roll_joint": 1.4686185121536255,
+        "right_wrist_pitch_joint": 2.548168420791626,
+        "right_wrist_yaw_joint": 0.7360672950744629,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.049342105263157895,
+      "inference_median_host_seconds": 0.5997873510023055,
+      "arm_tracking_error_p95_rad": 0.048853276669979094,
+      "arm_tracking_error_max_rad": 0.09690618515014648,
+      "right_gripper_tracking_error_p95_motor_rad": 0.1230001449584961,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -0.0006801535583241813,
+        -0.0039926983717661485,
+        -0.0016482074652063305
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.16358787908288352,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "reference_transfer",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.02668530959635973,
+        0.0727645754814148,
+        0.19841009378433228
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/reference_waist4",
+      "valid_policy_episode": true,
+      "sim_seconds": 25.00199999999702,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 711,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 2.0,
+        "waist_gain_scale": 4.0,
+        "arm_target_speed_limit_rad_s": 3.0,
+        "reset_pose": "default",
+        "action_timing": "compensate",
+        "camera_pitch": 69.9999999999998,
+        "camera_position": [
+          0.19999999999999998,
+          0.08921594707782389,
+          0.482061034852024
+        ],
+        "camera_fovy": 60.04311132149069,
+        "basket_scale": 1.4,
+        "async_commands": true,
+        "placement_speed_window": 0.1,
+        "speed_limit_clips": 6
+      },
+      "observation_to_chunk_median_sim_seconds": 0.29999999999983373,
+      "image_age_at_observation_median_sim_seconds": 0.007999999999999119,
+      "stale_action_steps_median": 8.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.6067012548446655,
+        "left_shoulder_roll_joint": 0.6999872326850891,
+        "left_shoulder_yaw_joint": 0.42914584279060364,
+        "left_elbow_joint": 1.2624073028564453,
+        "left_wrist_roll_joint": 0.9910580515861511,
+        "left_wrist_pitch_joint": 0.8166341185569763,
+        "left_wrist_yaw_joint": 0.09575816243886948,
+        "right_shoulder_pitch_joint": 1.581339955329895,
+        "right_shoulder_roll_joint": 0.6520271301269531,
+        "right_shoulder_yaw_joint": 2.0288612842559814,
+        "right_elbow_joint": 1.6139205694198608,
+        "right_wrist_roll_joint": 1.047795295715332,
+        "right_wrist_pitch_joint": 2.447086811065674,
+        "right_wrist_yaw_joint": 0.735405683517456,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.049342105263157895,
+      "inference_median_host_seconds": 0.6183802119994652,
+      "arm_tracking_error_p95_rad": 0.08589175641536709,
+      "arm_tracking_error_max_rad": 0.17509979009628296,
+      "right_gripper_tracking_error_p95_motor_rad": 0.018960002809762955,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -0.0006801535583241813,
+        -0.0039926983717661485,
+        -0.0016482074652063305
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.17923216259589553,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "reference_waist4",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.014502160251140594,
+        0.016700372099876404,
+        0.054340189322829247
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/speed3",
+      "valid_policy_episode": true,
+      "sim_seconds": 20.001999999999793,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 560,
+      "body_watchdog_events": 0,
+      "finger_stale_steps": 0,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": true,
+      "clean_policy_episode": true,
+      "experimental_parameters": {
+        "arm_gain_scale": 1.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 3.0,
+        "reset_pose": "default",
+        "action_timing": "legacy",
+        "camera_pitch": null,
+        "camera_position": null,
+        "camera_fovy": null,
+        "basket_scale": 1.0,
+        "async_commands": null,
+        "placement_speed_window": null,
+        "speed_limit_clips": 22
+      },
+      "observation_to_chunk_median_sim_seconds": 0.29600000000009885,
+      "image_age_at_observation_median_sim_seconds": 0.054000000000018034,
+      "stale_action_steps_median": 8.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.195195198059082,
+        "left_shoulder_roll_joint": 0.8143860101699829,
+        "left_shoulder_yaw_joint": 0.6615607738494873,
+        "left_elbow_joint": 0.95433509349823,
+        "left_wrist_roll_joint": 0.2927279472351074,
+        "left_wrist_pitch_joint": 1.346837043762207,
+        "left_wrist_yaw_joint": 0.393831342458725,
+        "right_shoulder_pitch_joint": 2.264854907989502,
+        "right_shoulder_roll_joint": 0.9569587707519531,
+        "right_shoulder_yaw_joint": 1.561134934425354,
+        "right_elbow_joint": 1.7502013444900513,
+        "right_wrist_roll_joint": 0.8130906224250793,
+        "right_wrist_pitch_joint": 1.4429104328155518,
+        "right_wrist_yaw_joint": 0.9252942800521851,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.0,
+      "inference_median_host_seconds": 0.6577607799990801,
+      "arm_tracking_error_p95_rad": 0.05625406205654144,
+      "arm_tracking_error_max_rad": 0.1051332950592041,
+      "right_gripper_tracking_error_p95_motor_rad": 0.11769771575927734,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -7.536270902608333e-05,
+        0.0001146641973427398,
+        -0.0003195924098615688
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.11284734121909303,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "speed3",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.005391043145209551,
+        0.034445226192474365,
+        0.18315240740776062
+      ]
+    },
+    {
+      "directory": "results/okura_refinement_20261001/transfer",
+      "valid_policy_episode": true,
+      "sim_seconds": 25.00199999999702,
+      "grasp_success": false,
+      "max_finger_contacts": 0,
+      "max_object_lift_m": 0.0,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "act_actions_executed": 712,
+      "body_watchdog_events": 1,
+      "finger_stale_steps": 1,
+      "arm_limit_clips": 0,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_passed": false,
+      "watchdog_test_passed": false,
+      "error": null,
+      "clean_command_stream": false,
+      "clean_policy_episode": false,
+      "experimental_parameters": {
+        "arm_gain_scale": 2.0,
+        "waist_gain_scale": null,
+        "arm_target_speed_limit_rad_s": 3.0,
+        "reset_pose": "default",
+        "action_timing": "compensate",
+        "camera_pitch": 69.9999999999998,
+        "camera_position": [
+          0.19999999999999998,
+          0.08921594707782389,
+          0.482061034852024
+        ],
+        "camera_fovy": 60.04311132149069,
+        "basket_scale": 1.4,
+        "async_commands": null,
+        "placement_speed_window": null,
+        "speed_limit_clips": 8
+      },
+      "observation_to_chunk_median_sim_seconds": 0.2559999999999718,
+      "image_age_at_observation_median_sim_seconds": 0.042000000000014026,
+      "stale_action_steps_median": 7.0,
+      "state_normalized_max_abs": {
+        "left_shoulder_pitch_joint": 1.6173962354660034,
+        "left_shoulder_roll_joint": 0.7711620926856995,
+        "left_shoulder_yaw_joint": 0.5907757878303528,
+        "left_elbow_joint": 1.3454641103744507,
+        "left_wrist_roll_joint": 1.224206566810608,
+        "left_wrist_pitch_joint": 0.5586104989051819,
+        "left_wrist_yaw_joint": 0.16871139407157898,
+        "right_shoulder_pitch_joint": 1.5783697366714478,
+        "right_shoulder_roll_joint": 0.8975216150283813,
+        "right_shoulder_yaw_joint": 2.350538969039917,
+        "right_elbow_joint": 1.614548683166504,
+        "right_wrist_roll_joint": 1.5729763507843018,
+        "right_wrist_pitch_joint": 2.4286015033721924,
+        "right_wrist_yaw_joint": 0.7360672950744629,
+        "left_gripper": 0.0,
+        "right_gripper": 1.5552527904510498
+      },
+      "state_outside_training_minmax_fraction": 0.05,
+      "inference_median_host_seconds": 0.6605187839995779,
+      "arm_tracking_error_p95_rad": 0.03945610653609037,
+      "arm_tracking_error_max_rad": 0.07293427060358226,
+      "right_gripper_tracking_error_p95_motor_rad": 0.1230001449584961,
+      "right_gripper_measured_range_motor_rad": [
+        0.0,
+        5.400000095367432
+      ],
+      "object_displacement_xyz_m": [
+        -0.0008671262484628572,
+        0.002027633780525631,
+        -0.0036627499392866136
+      ],
+      "min_finger_body_midpoint_to_object_center_m": 0.16729453322010396,
+      "distance_note": "Body-origin midpoint, not collision-surface clearance.",
+      "name": "transfer",
+      "finite_trajectory": true,
+      "waist_error_p95_rad": [
+        0.02774846740067005,
+        0.05831281654536724,
+        0.18294045329093933
+      ]
+    }
+  ],
+  "phase_probes": [
+    {
+      "name": "phase_carry",
+      "phase_tested": "carry",
+      "expected_next_phase": "lower",
+      "phase_passed": false,
+      "act_executed": false,
+      "prepared_grasp_fixture": true,
+      "object_attached": false,
+      "pelvis_fixed_during_test": false,
+      "preparation_gravity_disabled_seconds": 1.0,
+      "completed": true,
+      "error": null,
+      "physical_preparation_valid": true,
+      "initial_object_position": [
+        0.13810016740301392,
+        -0.02116635374593971,
+        0.9486598647846689
+      ],
+      "failure": "object_lost",
+      "simulation_seconds": 11.748000000000593,
+      "transfer": {
+        "phase": "failed",
+        "success": false,
+        "failure": "object_lost",
+        "events": [
+          {
+            "from": "pick",
+            "to": "carry",
+            "time": 1.500000000000001,
+            "reason": "diagnostic_prepared_grasp"
+          },
+          {
+            "from": "carry",
+            "to": "failed",
+            "time": 11.746000000000592,
+            "reason": "object_lost"
+          }
+        ],
+        "fixture_released": true,
+        "navigation_started": true,
+        "waypoint_index": 1,
+        "phases_executed": [
+          "carry",
+          "failed"
+        ],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.13,
+            0.76
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      },
+      "pelvis_fixture_active_at_end": false,
+      "final_object_position": [
+        -0.07643516032100774,
+        0.8522395710672276,
+        0.6447489625966627
+      ]
+    },
+    {
+      "name": "phase_hold",
+      "phase_tested": "hold",
+      "expected_next_phase": "stand",
+      "phase_passed": true,
+      "act_executed": false,
+      "prepared_grasp_fixture": true,
+      "object_attached": false,
+      "pelvis_fixed_during_test": true,
+      "preparation_gravity_disabled_seconds": 1.0,
+      "completed": true,
+      "error": null,
+      "physical_preparation_valid": true,
+      "initial_object_position": [
+        0.13810016740301392,
+        -0.02116635374593971,
+        0.9486598647846689
+      ],
+      "simulation_seconds": 2.501999999999946,
+      "transfer": {
+        "phase": "stand",
+        "success": false,
+        "failure": null,
+        "events": [
+          {
+            "from": "pick",
+            "to": "hold",
+            "time": 1.500000000000001,
+            "reason": "diagnostic_prepared_grasp"
+          },
+          {
+            "from": "hold",
+            "to": "stand",
+            "time": 2.501999999999946,
+            "reason": null
+          }
+        ],
+        "fixture_released": false,
+        "navigation_started": false,
+        "waypoint_index": 0,
+        "phases_executed": [
+          "hold",
+          "stand"
+        ],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.13,
+            0.76
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      },
+      "pelvis_fixture_active_at_end": true,
+      "final_object_position": [
+        0.1309908609274605,
+        -0.03073749830650295,
+        0.7975004018418657
+      ]
+    },
+    {
+      "name": "phase_lower",
+      "phase_tested": "lower",
+      "expected_next_phase": "release",
+      "phase_passed": false,
+      "act_executed": false,
+      "prepared_grasp_fixture": true,
+      "object_attached": false,
+      "pelvis_fixed_during_test": true,
+      "preparation_gravity_disabled_seconds": 1.0,
+      "completed": true,
+      "error": null,
+      "physical_preparation_valid": false,
+      "initial_object_position": [
+        0.4671781113885928,
+        1.1786815652558937,
+        0.8451524686179608
+      ],
+      "failure": "preparation_did_not_retain_bilateral_grasp_under_gravity",
+      "simulation_seconds": 3.001999999999891,
+      "transfer": {
+        "phase": "pick",
+        "success": false,
+        "failure": null,
+        "events": [],
+        "fixture_released": false,
+        "navigation_started": false,
+        "waypoint_index": 0,
+        "phases_executed": [],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.13,
+            0.76
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      },
+      "pelvis_fixture_active_at_end": true,
+      "final_object_position": [
+        0.46691983812444837,
+        1.1918302787138217,
+        0.733937575530411
+      ]
+    },
+    {
+      "name": "phase_lower_high",
+      "phase_tested": "lower",
+      "expected_next_phase": "release",
+      "phase_passed": true,
+      "act_executed": false,
+      "prepared_grasp_fixture": true,
+      "object_attached": false,
+      "pelvis_fixed_during_test": true,
+      "preparation_gravity_disabled_seconds": 1.0,
+      "completed": true,
+      "error": null,
+      "physical_preparation_valid": true,
+      "initial_object_position": [
+        0.5191078245200466,
+        1.1920988352899433,
+        1.005700977224211
+      ],
+      "requested_placement_fixture_height": 1.0,
+      "simulation_seconds": 1.9440000000000015,
+      "transfer": {
+        "phase": "release",
+        "success": false,
+        "failure": null,
+        "events": [
+          {
+            "from": "pick",
+            "to": "lower",
+            "time": 1.500000000000001,
+            "reason": "diagnostic_prepared_grasp"
+          },
+          {
+            "from": "lower",
+            "to": "release",
+            "time": 1.9440000000000015,
+            "reason": null
+          }
+        ],
+        "fixture_released": false,
+        "navigation_started": false,
+        "waypoint_index": 0,
+        "phases_executed": [
+          "lower",
+          "release"
+        ],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.13,
+            0.76
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      },
+      "pelvis_fixture_active_at_end": true,
+      "final_object_position": [
+        0.5482431515502901,
+        1.2165315011612663,
+        0.7604203704342218
+      ]
+    },
+    {
+      "name": "phase_release",
+      "phase_tested": "release",
+      "expected_next_phase": "done",
+      "phase_passed": false,
+      "act_executed": false,
+      "prepared_grasp_fixture": true,
+      "object_attached": false,
+      "pelvis_fixed_during_test": true,
+      "preparation_gravity_disabled_seconds": 1.0,
+      "completed": true,
+      "error": null,
+      "physical_preparation_valid": false,
+      "initial_object_position": [
+        0.4671781113885928,
+        1.1786815652558937,
+        0.8451524686179608
+      ],
+      "failure": "preparation_did_not_retain_bilateral_grasp_under_gravity",
+      "simulation_seconds": 3.001999999999891,
+      "transfer": {
+        "phase": "pick",
+        "success": false,
+        "failure": null,
+        "events": [],
+        "fixture_released": false,
+        "navigation_started": false,
+        "waypoint_index": 0,
+        "phases_executed": [],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.13,
+            0.76
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      },
+      "pelvis_fixture_active_at_end": true,
+      "final_object_position": [
+        0.46691983812444837,
+        1.1918302787138217,
+        0.733937575530411
+      ]
+    },
+    {
+      "name": "phase_release_diagnostic",
+      "phase_tested": "release",
+      "expected_next_phase": "done",
+      "phase_passed": false,
+      "act_executed": false,
+      "prepared_grasp_fixture": true,
+      "object_attached": false,
+      "pelvis_fixed_during_test": true,
+      "preparation_gravity_disabled_seconds": 1.0,
+      "completed": true,
+      "error": null,
+      "physical_preparation_valid": true,
+      "initial_object_position": [
+        0.5191078245200466,
+        1.1920988352899433,
+        1.005700977224211
+      ],
+      "requested_placement_fixture_height": 1.0,
+      "failure": "release_timeout",
+      "simulation_seconds": 6.503999999999506,
+      "transfer": {
+        "phase": "failed",
+        "success": false,
+        "failure": "release_timeout",
+        "events": [
+          {
+            "from": "pick",
+            "to": "release",
+            "time": 1.500000000000001,
+            "reason": "diagnostic_prepared_grasp"
+          },
+          {
+            "from": "release",
+            "to": "failed",
+            "time": 6.501999999999506,
+            "reason": "release_timeout"
+          }
+        ],
+        "fixture_released": false,
+        "navigation_started": false,
+        "waypoint_index": 0,
+        "phases_executed": [
+          "failed",
+          "release"
+        ],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.13,
+            0.76
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      },
+      "last_observation": {
+        "arms": [
+          -0.16706210724813977,
+          0.10442949421462296,
+          0.057449275652120754,
+          0.7531472141410895,
+          0.006777135229305429,
+          -0.7821053796948902,
+          -0.13396984412060628,
+          -1.2124124574058925,
+          0.11276185562949395,
+          -0.5091992639422306,
+          1.4599773358946877,
+          -0.27237744123291147,
+          0.1250741718306058,
+          -0.004167940926833565
+        ],
+        "bilateral": false,
+        "hand_contact": false,
+        "lift": 0.7336617876425768,
+        "fallen": false,
+        "arrived": false,
+        "table_contact": true,
+        "over_table": true,
+        "release_ready": true,
+        "object_speed": 0.050776877029808834,
+        "gripper_open": true
+      },
+      "pelvis_fixture_active_at_end": true,
+      "final_object_position": [
+        0.5601850491557032,
+        1.1975273092010277,
+        0.7336659882960688
+      ]
+    },
+    {
+      "name": "phase_release_dt1ms",
+      "phase_tested": "release",
+      "expected_next_phase": "done",
+      "phase_passed": false,
+      "act_executed": false,
+      "prepared_grasp_fixture": true,
+      "object_attached": false,
+      "pelvis_fixed_during_test": true,
+      "preparation_gravity_disabled_seconds": 1.0,
+      "completed": true,
+      "error": null,
+      "physical_preparation_valid": true,
+      "initial_object_position": [
+        0.5191078245200466,
+        1.1920988352899433,
+        1.005700977224211
+      ],
+      "requested_placement_fixture_height": 1.0,
+      "timestep": 0.001,
+      "failure": "release_timeout",
+      "simulation_seconds": 6.500000000000505,
+      "transfer": {
+        "phase": "failed",
+        "success": false,
+        "failure": "release_timeout",
+        "events": [
+          {
+            "from": "pick",
+            "to": "release",
+            "time": 1.4999999999999456,
+            "reason": "diagnostic_prepared_grasp"
+          },
+          {
+            "from": "release",
+            "to": "failed",
+            "time": 6.500000000000505,
+            "reason": "release_timeout"
+          }
+        ],
+        "fixture_released": false,
+        "navigation_started": false,
+        "waypoint_index": 0,
+        "phases_executed": [
+          "failed",
+          "release"
+        ],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.13,
+            0.76
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      },
+      "last_observation": {
+        "arms": [
+          -0.16664232888416947,
+          0.10445254851018639,
+          0.05748108485528419,
+          0.7530410191650099,
+          0.006666761680306923,
+          -0.7828295283756845,
+          -0.13407459673898678,
+          -1.2123784823942205,
+          0.11281669298448971,
+          -0.5091968619292077,
+          1.4600107810090428,
+          -0.2723783360458834,
+          0.12509923322512184,
+          -0.004163899490581698
+        ],
+        "bilateral": false,
+        "hand_contact": false,
+        "lift": -0.2720200942429717,
+        "fallen": false,
+        "arrived": false,
+        "table_contact": true,
+        "over_table": true,
+        "release_ready": true,
+        "object_speed": 0.05065306394541684,
+        "gripper_open": true
+      },
+      "pelvis_fixture_active_at_end": true,
+      "final_object_position": [
+        0.5624035262312138,
+        1.1975785837266713,
+        0.7336808829812392
+      ]
+    },
+    {
+      "name": "phase_release_high",
+      "phase_tested": "release",
+      "expected_next_phase": "done",
+      "phase_passed": false,
+      "act_executed": false,
+      "prepared_grasp_fixture": true,
+      "object_attached": false,
+      "pelvis_fixed_during_test": true,
+      "preparation_gravity_disabled_seconds": 1.0,
+      "completed": true,
+      "error": null,
+      "physical_preparation_valid": true,
+      "initial_object_position": [
+        0.5191078245200466,
+        1.1920988352899433,
+        1.005700977224211
+      ],
+      "requested_placement_fixture_height": 1.0,
+      "failure": "release_timeout",
+      "simulation_seconds": 6.503999999999506,
+      "transfer": {
+        "phase": "failed",
+        "success": false,
+        "failure": "release_timeout",
+        "events": [
+          {
+            "from": "pick",
+            "to": "release",
+            "time": 1.500000000000001,
+            "reason": "diagnostic_prepared_grasp"
+          },
+          {
+            "from": "release",
+            "to": "failed",
+            "time": 6.501999999999506,
+            "reason": "release_timeout"
+          }
+        ],
+        "fixture_released": false,
+        "navigation_started": false,
+        "waypoint_index": 0,
+        "phases_executed": [
+          "failed",
+          "release"
+        ],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.13,
+            0.76
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      },
+      "pelvis_fixture_active_at_end": true,
+      "final_object_position": [
+        0.5601850491557032,
+        1.1975273092010277,
+        0.7336659882960688
+      ]
+    },
+    {
+      "name": "phase_release_window",
+      "phase_tested": "release",
+      "expected_next_phase": "done",
+      "phase_passed": true,
+      "act_executed": false,
+      "prepared_grasp_fixture": true,
+      "object_attached": false,
+      "pelvis_fixed_during_test": true,
+      "preparation_gravity_disabled_seconds": 1.0,
+      "completed": true,
+      "error": null,
+      "physical_preparation_valid": true,
+      "initial_object_position": [
+        0.5191078245200466,
+        1.1920988352899433,
+        1.005700977224211
+      ],
+      "requested_placement_fixture_height": 1.0,
+      "timestep": 0.002,
+      "placement_speed_window": 0.1,
+      "simulation_seconds": 2.2359999999999753,
+      "transfer": {
+        "phase": "done",
+        "success": true,
+        "failure": null,
+        "events": [
+          {
+            "from": "pick",
+            "to": "release",
+            "time": 1.500000000000001,
+            "reason": "diagnostic_prepared_grasp"
+          },
+          {
+            "from": "release",
+            "to": "done",
+            "time": 2.2359999999999753,
+            "reason": null
+          }
+        ],
+        "fixture_released": false,
+        "navigation_started": false,
+        "waypoint_index": 0,
+        "phases_executed": [
+          "done",
+          "release"
+        ],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.13,
+            0.76
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      },
+      "last_observation": {
+        "arms": [
+          -0.16850651767727623,
+          0.10610908272989812,
+          0.058210902835701725,
+          0.7533902838026009,
+          0.00624790657819234,
+          -0.7812738517093893,
+          -0.1323509872861107,
+          -1.211518666033185,
+          0.11135867256463165,
+          -0.5089302660745327,
+          1.460121773289323,
+          -0.27229493299180135,
+          0.1234555557714366,
+          -0.004148828772080741
+        ],
+        "bilateral": false,
+        "hand_contact": false,
+        "lift": -0.2719367614234147,
+        "fallen": false,
+        "arrived": false,
+        "table_contact": true,
+        "over_table": true,
+        "release_ready": true,
+        "object_speed": 0.004315611187430662,
+        "gripper_open": true,
+        "instantaneous_object_speed": 0.03877176754963777
+      },
+      "pelvis_fixture_active_at_end": true,
+      "final_object_position": [
+        0.5636783718614413,
+        1.1921301970923093,
+        0.7337642158007962
+      ]
+    },
+    {
+      "name": "phase_stand",
+      "phase_tested": "stand",
+      "expected_next_phase": "carry",
+      "phase_passed": true,
+      "act_executed": false,
+      "prepared_grasp_fixture": true,
+      "object_attached": false,
+      "pelvis_fixed_during_test": false,
+      "preparation_gravity_disabled_seconds": 1.0,
+      "completed": true,
+      "error": null,
+      "physical_preparation_valid": true,
+      "initial_object_position": [
+        0.13810016740301392,
+        -0.02116635374593971,
+        0.9486598647846689
+      ],
+      "simulation_seconds": 3.501999999999836,
+      "transfer": {
+        "phase": "carry",
+        "success": false,
+        "failure": null,
+        "events": [
+          {
+            "from": "pick",
+            "to": "stand",
+            "time": 1.500000000000001,
+            "reason": "diagnostic_prepared_grasp"
+          },
+          {
+            "from": "stand",
+            "to": "carry",
+            "time": 3.501999999999836,
+            "reason": null
+          }
+        ],
+        "fixture_released": true,
+        "navigation_started": false,
+        "waypoint_index": 0,
+        "phases_executed": [
+          "carry",
+          "stand"
+        ],
+        "carry_composition_validated": false,
+        "uses_privileged_object_and_base_pose": true,
+        "configuration": {
+          "object_kind": "okra",
+          "object_position": [
+            0.43,
+            -0.13,
+            0.76
+          ],
+          "initial_right_state": [
+            -0.2939730585,
+            0.0765911862,
+            0.1739749908,
+            0.767997086,
+            -0.3397168219,
+            -0.8085756898,
+            -0.476157248,
+            0.0189600028
+          ],
+          "dataset_revision": "b47cc2ec337360154a4b8e44ded18ba40da520e3",
+          "dataset": "sotata/okura-pick-06102026",
+          "carry_target": [
+            0.0,
+            1.2,
+            0.0
+          ],
+          "carry_waypoints": [
+            [
+              -0.3,
+              0.0,
+              0.0
+            ],
+            [
+              -0.3,
+              1.2,
+              0.0
+            ],
+            [
+              0.0,
+              1.2,
+              0.0
+            ]
+          ],
+          "carry_speed": 0.3,
+          "pick_timeout": 25.0,
+          "carry_timeout": 30.0
+        }
+      },
+      "pelvis_fixture_active_at_end": false,
+      "final_object_position": [
+        0.10648551031357348,
+        -0.04190234731300957,
+        0.7916686345195775
+      ]
+    }
+  ],
+  "mechanical_trials": [
+    {
+      "name": "async_mechanical",
+      "completed": true,
+      "physical_grasp_tested": false,
+      "grasp_success": false,
+      "mode": "mechanical",
+      "camera_calibrated": false,
+      "base_fixed": true,
+      "object_attached": false,
+      "error": null,
+      "watchdog_test_requested": true,
+      "watchdog_test_passed": true,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "max_object_lift_m": 0.0,
+      "max_finger_contacts": 0,
+      "act_actions_executed": 0,
+      "chunks": 0,
+      "inference_seconds": [],
+      "arm_limit_clips": 0,
+      "body_watchdog_events": 1,
+      "finger_stale_steps": 155,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_positions_motor_rad": {
+        "open": [
+          5.400000095367432,
+          5.400000095367432
+        ],
+        "closed": [
+          0.0,
+          0.0
+        ],
+        "reopened": [
+          5.400000095367432,
+          5.400000095367432
+        ]
+      },
+      "mechanical_passed": true,
+      "max_arm_motion_rad": 0.20631033182144165,
+      "sim_seconds": 7.201999999999429,
+      "wall_seconds": 10.786395109997102,
+      "box_initial_position": [
+        0.4,
+        -0.15,
+        0.755
+      ],
+      "object_kind": "box",
+      "action_rate_hz": 30,
+      "execute_steps_per_chunk": 30,
+      "arm_target_speed_limit_rad_s": 1.5,
+      "arm_gain_scale": 1.0,
+      "action_timing": "legacy",
+      "speed_limit_clips": 0,
+      "reset_pose": "default",
+      "camera_pitch": null,
+      "camera_position": null,
+      "camera_fovy": null,
+      "basket_scale": 1.0,
+      "async_commands": true,
+      "placement_speed_window": 0.0,
+      "encoder_slide_resolution_m": 0.001,
+      "note": "Local Dex1 MJCF from official URDF. Camera/table/object are uncalibrated; no training or object attachment."
+    },
+    {
+      "name": "mechanical",
+      "completed": true,
+      "physical_grasp_tested": false,
+      "grasp_success": false,
+      "mode": "mechanical",
+      "camera_calibrated": false,
+      "base_fixed": true,
+      "object_attached": false,
+      "error": null,
+      "watchdog_test_requested": true,
+      "watchdog_test_passed": true,
+      "max_lift_with_two_finger_contact_seconds": 0.0,
+      "max_object_lift_m": 0.0,
+      "max_finger_contacts": 0,
+      "act_actions_executed": 0,
+      "chunks": 0,
+      "inference_seconds": [],
+      "arm_limit_clips": 0,
+      "body_watchdog_events": 1,
+      "finger_stale_steps": 157,
+      "invalid_body_commands": 0,
+      "invalid_hand_commands": 0,
+      "mechanical_positions_motor_rad": {
+        "open": [
+          5.400000095367432,
+          5.400000095367432
+        ],
+        "closed": [
+          0.0,
+          0.0
+        ],
+        "reopened": [
+          5.400000095367432,
+          5.400000095367432
+        ]
+      },
+      "mechanical_passed": true,
+      "max_arm_motion_rad": 0.20760506391525269,
+      "sim_seconds": 7.201999999999429,
+      "wall_seconds": 14.255588645999524,
+      "box_initial_position": [
+        0.4,
+        -0.15,
+        0.755
+      ],
+      "object_kind": "box",
+      "action_rate_hz": 30,
+      "execute_steps_per_chunk": 30,
+      "arm_target_speed_limit_rad_s": 1.5,
+      "arm_gain_scale": 1.0,
+      "action_timing": "legacy",
+      "speed_limit_clips": 0,
+      "reset_pose": "default",
+      "camera_pitch": null,
+      "camera_position": null,
+      "camera_fovy": null,
+      "basket_scale": 1.0,
+      "encoder_slide_resolution_m": 0.001,
+      "note": "Local Dex1 MJCF from official URDF. Camera/table/object are uncalibrated; no training or object attachment."
+    }
+  ],
+  "dataset_diagnostic": {
+    "physical_execution": false,
+    "original_16d_dataset_available": false,
+    "left_state": "checkpoint mean, not measured original left state",
+    "reference": "public right-arm 8d episode 0; not a valid full-state reproduction of training",
+    "synthetic_note": "Fixed initial synthetic RGB; later-frame comparisons measure sensitivity, not replay correctness.",
+    "results": [
+      {
+        "frame": 0,
+        "image": "real",
+        "right_arm_rmse_rad": 0.047586224339330345,
+        "right_gripper_rmse_motor_rad": 0.20258682553100782
+      },
+      {
+        "frame": 0,
+        "image": "synthetic_initial_diagnostic",
+        "right_arm_rmse_rad": 0.13652547912491922,
+        "right_gripper_rmse_motor_rad": 3.4427120808967655
+      },
+      {
+        "frame": 150,
+        "image": "real",
+        "right_arm_rmse_rad": 0.035946439754111624,
+        "right_gripper_rmse_motor_rad": 0.04827392656439717
+      },
+      {
+        "frame": 150,
+        "image": "synthetic_initial_diagnostic",
+        "right_arm_rmse_rad": 0.21818499535956104,
+        "right_gripper_rmse_motor_rad": 4.033096017848114
+      },
+      {
+        "frame": 300,
+        "image": "real",
+        "right_arm_rmse_rad": 0.04182702723558766,
+        "right_gripper_rmse_motor_rad": 0.25150405926258135
+      },
+      {
+        "frame": 300,
+        "image": "synthetic_initial_diagnostic",
+        "right_arm_rmse_rad": 0.21263265441420703,
+        "right_gripper_rmse_motor_rad": 2.2819540777018
+      }
+    ]
+  },
+  "visual_diagnostic": {
+    "original_left_state_unknown": true,
+    "physical_execution": false,
+    "results": [
+      {
+        "style": "legacy",
+        "reset": "default",
+        "right_arm_rmse_rad": 0.13652547912491922,
+        "right_gripper_rmse_motor_rad": 3.4427120808967655
+      },
+      {
+        "style": "reference",
+        "reset": "default",
+        "right_arm_rmse_rad": 0.10394148158041093,
+        "right_gripper_rmse_motor_rad": 3.5473459924994306
+      },
+      {
+        "style": "reference",
+        "reset": "park-left",
+        "right_arm_rmse_rad": 0.10855092185113653,
+        "right_gripper_rmse_motor_rad": 3.5489978113115606
+      }
+    ]
+  },
+  "test_suite": {
+    "passed": 93,
+    "skipped": 3
+  },
+  "totals": {
+    "policy_trials": 16,
+    "clean_policy_trials": 13,
+    "grasps": 0
+  }
+}

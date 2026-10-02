@@ -13,8 +13,11 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def make_scene(
-    *, dex1=False, box_position=(0.4, -0.15, 0.755), object_kind='box', transfer_scene=False
+    *, dex1=False, box_position=(0.4, -0.15, 0.755), object_kind='box', transfer_scene=False,
+    camera_pitch=None, camera_position=None, camera_fovy=None, basket_scale=1.0, basket_position=None, visual_style='legacy'
 ) -> tuple[mujoco.MjModel, mujoco.MjData]:
+    if visual_style not in ('legacy', 'reference'):
+        raise ValueError('Unknown visual style')
     root = ET.parse(ROOT / 'src/g1_mujoco/mjcf/g1_29dof.xml').getroot()
     root.find('compiler').set('meshdir', str(ROOT / 'src/g1_description/meshes'))
     ET.SubElement(root, 'option', timestep='0.002', integrator='implicitfast')
@@ -149,12 +152,59 @@ def make_scene(
     if transfer_scene:
         torso.find("camera[@name='cam_left_high']").set('xyaxes', '0 -1 0 .819152 0 .573576')
         world.find("site[@name='destination']").set('rgba', '0 0 0 0')
+    if camera_pitch is not None:
+        angle = np.deg2rad(camera_pitch)
+        torso.find("camera[@name='cam_left_high']").set(
+            'xyaxes', f'0 -1 0 {np.sin(angle)} 0 {np.cos(angle)}'
+        )
+    if camera_position is not None:
+        position = np.asarray(camera_position)
+        if position.shape != (3,) or not np.isfinite(position).all():
+            raise ValueError('Camera position requires three finite values')
+        torso.find("camera[@name='cam_left_high']").set('pos', ' '.join(map(str, position)))
+    if camera_fovy is not None:
+        if not np.isfinite(camera_fovy) or not 0 < camera_fovy < 180:
+            raise ValueError('Camera fovy must be in (0, 180)')
+        torso.find("camera[@name='cam_left_high']").set('fovy', str(camera_fovy))
+    if not np.isfinite(basket_scale) or basket_scale <= 0:
+        raise ValueError('Basket scale must be positive')
+    basket = world.find("body[@name='basket']")
+    if basket is not None and basket_position is not None:
+        position = np.asarray(basket_position)
+        if position.shape != (3,) or not np.isfinite(position).all():
+            raise ValueError('Basket position requires three finite values')
+        basket.set('pos', ' '.join(map(str, position)))
+    if basket is not None and basket_scale != 1.0:
+        for geom in basket.findall('geom'):
+            for attribute in ('size', 'pos'):
+                if geom.get(attribute):
+                    geom.set(attribute, ' '.join(str(float(v) * basket_scale)
+                                                for v in geom.get(attribute).split()))
     equality = ET.SubElement(root, 'equality')
     ET.SubElement(equality, 'weld', name='pelvis_fixture', body1='pelvis')
     if dex1:
         from g1_backend.dex1 import add_dex1
 
         add_dex1(root)
+    if visual_style == 'reference':
+        world.find("geom[@name='table']").set('rgba', '.22 .22 .23 1')
+        for geom in root.findall('.//geom'):
+            if geom.get('name', '').endswith('dex1_base_link_visual'):
+                geom.set('rgba', '.025 .025 .03 1')
+        if transfer_scene:
+            # Estimated crossed ridges from the cached reference frame.
+            # Replace the uncalibrated pegs; both variants retain physical support.
+            for geom in list(world.findall('geom')):
+                if geom.get('name') is None and geom.get('type') == 'capsule':
+                    world.remove(geom)
+            for x in np.arange(.29, .72, .05):
+                for y in np.arange(-.24, .25, .04):
+                    for sign in (-1, 1):
+                        ET.SubElement(
+                            world, 'geom', type='capsule',
+                            fromto=f'{x} {y} .749 {x + .05} {y + sign * .04} .749',
+                            size='.0015', rgba='.04 .04 .045 1', friction='.8 .01 .001'
+                        )
     model = mujoco.MjModel.from_xml_string(ET.tostring(root, encoding='unicode'))
     data = mujoco.MjData(model)
     mujoco.mj_forward(model, data)

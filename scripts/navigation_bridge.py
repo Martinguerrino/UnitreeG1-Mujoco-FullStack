@@ -12,9 +12,10 @@ import rclpy
 from geometry_msgs.msg import TransformStamped, Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.executors import ExternalShutdownException
 from rclpy.qos import qos_profile_sensor_data
 from rosgraph_msgs.msg import Clock
-from sensor_msgs.msg import CameraInfo, Image, JointState, LaserScan, PointCloud2, PointField
+from sensor_msgs.msg import CameraInfo, Image, Imu, JointState, LaserScan, PointCloud2, PointField
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 
 
@@ -35,9 +36,19 @@ class Bridge(Node):
         self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8 * 1024 * 1024)
         self.sensor_socket.bind(('127.0.0.1', 19422))
         self.sensor_socket.setblocking(False)
+        self.real_odom = self.declare_parameter('real_odom', False).value
+        self.last_estimated_time = -math.inf
+        self.last_sim_time = 0.0
+        if self.real_odom:
+            self.create_subscription(Odometry, '/odom', self.estimated_odometry, 10)
+        self.imu = self.create_publisher(Imu, '/imu/data', qos_profile_sensor_data)
+        # Reliable delivery also matches FAST-LIO2's upstream IMU subscription.
+        self.torso_imu = self.create_publisher(Imu, '/imu/torso', 100)
+        self.truth = self.create_publisher(Odometry, '/ground_truth/odom', 10)
         self.clock = self.create_publisher(Clock, '/clock', 10)
-        self.odom = self.create_publisher(Odometry, '/odom', 10)
-        self.scan = self.create_publisher(LaserScan, '/scan', 10)
+        if not self.real_odom:
+            self.odom = self.create_publisher(Odometry, '/odom', 10)
+            self.scan = self.create_publisher(LaserScan, '/scan', 10)
         self.points = self.create_publisher(PointCloud2, '/mid360/points', qos_profile_sensor_data)
         self.color = self.create_publisher(Image, '/camera/color/image_raw', qos_profile_sensor_data)
         self.depth = self.create_publisher(Image, '/camera/depth/image_rect_raw', qos_profile_sensor_data)
@@ -48,6 +59,8 @@ class Bridge(Node):
         transforms = []
         for parent, child, xyz, quaternion in (
             ('base_link', 'laser', (0.0, 0.0, 0.78), (1.0, 0.0, 0.0, 0.0)),
+            ('torso_link', 'torso_imu', (-0.03959, -0.00224, 0.11892),
+             (1.0, 0.0, 0.0, 0.0)),
             ('d435_link', 'd435i_color_optical_frame', (0.0, 0.0, 0.0),
              # ROS optical axes: right, down, forward. MuJoCo cameras use
              # right, up, backward, so their last two axes must be flipped.
@@ -70,11 +83,16 @@ class Bridge(Node):
         self.previous_pose = None
         self.sensor_chunks = {}
 
+    def estimated_odometry(self, message):
+        self.last_estimated_time = message.header.stamp.sec + message.header.stamp.nanosec * 1e-9
+
     def command(self, message):
         values = [message.linear.x, message.linear.y, message.angular.z]
         if not all(math.isfinite(value) for value in values):
             return
         if time.monotonic() - self.last_received > 0.5:
+            values = [0.0, 0.0, 0.0]
+        if self.real_odom and self.last_sim_time - self.last_estimated_time > 0.3:
             values = [0.0, 0.0, 0.0]
         self.socket.sendto(json.dumps({'velocity': values}).encode(), ('127.0.0.1', 19421))
 
@@ -86,8 +104,22 @@ class Bridge(Node):
                 break
             row = json.loads(payload)
             self.last_received = time.monotonic()
+            self.last_sim_time = row['time']
             timestamp = stamp(row['time'])
             self.clock.publish(Clock(clock=timestamp))
+            for sample in row.get('torso_imu', []):
+                inertial = Imu()
+                inertial.header.stamp = stamp(sample['time'])
+                inertial.header.frame_id = 'torso_imu'
+                # FAST-LIO estimates orientation; no simulator quaternion input.
+                inertial.orientation_covariance[0] = -1.0
+                (inertial.angular_velocity.x, inertial.angular_velocity.y,
+                 inertial.angular_velocity.z) = map(float, sample['gyro'])
+                (inertial.linear_acceleration.x, inertial.linear_acceleration.y,
+                 inertial.linear_acceleration.z) = map(float, sample['acc'])
+                inertial.angular_velocity_covariance = [2.5e-7, 0., 0., 0., 2.5e-7, 0., 0., 0., 2.5e-7]
+                inertial.linear_acceleration_covariance = [1e-4, 0., 0., 0., 1e-4, 0., 0., 0., 1e-4]
+                self.torso_imu.publish(inertial)
             # JSON numbers may be integers; ROS C serialization requires floats.
             w, x, y, z = map(float, row['quaternion'])
             yaw = math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
@@ -108,7 +140,28 @@ class Bridge(Node):
                     delta = yaw - previous_yaw
                     odom.twist.twist.angular.z = math.atan2(math.sin(delta), math.cos(delta)) / dt
             self.previous_pose = (row['time'], yaw)
-            self.odom.publish(odom)
+            real = getattr(self, 'real_odom', False)
+            if real:
+                truth = Odometry()
+                truth.header.stamp = timestamp
+                truth.header.frame_id = 'ground_truth'
+                truth.child_frame_id = 'ground_truth_base'
+                truth.pose = odom.pose
+                truth.twist = odom.twist
+                self.truth.publish(truth)
+            else:
+                self.odom.publish(odom)
+            if 'imu' in row:
+                imu = Imu()
+                imu.header.stamp = timestamp
+                imu.header.frame_id = 'pelvis'
+                (imu.orientation.w, imu.orientation.x, imu.orientation.y, imu.orientation.z) = map(float, row['imu']['quat'])
+                (imu.angular_velocity.x, imu.angular_velocity.y, imu.angular_velocity.z) = map(float, row['imu']['gyro'])
+                (imu.linear_acceleration.x, imu.linear_acceleration.y, imu.linear_acceleration.z) = map(float, row['imu']['acc'])
+                imu.orientation_covariance = [0.0001, 0., 0., 0., 0.0001, 0., 0., 0., 0.0001]
+                imu.angular_velocity_covariance = [0.0001, 0., 0., 0., 0.0001, 0., 0., 0., 0.0001]
+                imu.linear_acceleration_covariance = [0.01, 0., 0., 0., 0.01, 0., 0., 0., 0.01]
+                self.imu.publish(imu)
             joints = JointState()
             joints.header.stamp = timestamp
             joints.name = row['joint_names']
@@ -124,14 +177,15 @@ class Bridge(Node):
             pelvis.header.stamp = timestamp
             pelvis.header.frame_id = 'base_link'
             pelvis.child_frame_id = 'pelvis'
-            pelvis.transform.translation.z = float(row['position'][2])
+            pelvis.transform.translation.z = 0.793 if real else float(row['position'][2])
             # Remove only yaw; retain the physical pelvis roll and pitch.
             c, s = math.cos(yaw / 2), math.sin(yaw / 2)
             (pelvis.transform.rotation.w, pelvis.transform.rotation.x,
              pelvis.transform.rotation.y, pelvis.transform.rotation.z) = (
                 c*w + s*z, c*x + s*y, c*y - s*x, c*z - s*w)
-            self.tf.sendTransform([transform, pelvis])
-            if row['scan'] is not None and row['scan_time'] != self.last_scan:
+            if not real:
+                self.tf.sendTransform([transform, pelvis])
+            if not real and row['scan'] is not None and row['scan_time'] != self.last_scan:
                 self.last_scan = row['scan_time']
                 scan = LaserScan()
                 scan.header.stamp = stamp(row['scan_time'])
@@ -188,11 +242,17 @@ class Bridge(Node):
                 PointField(name=name, offset=offset, datatype=PointField.FLOAT32, count=1)
                 for name, offset in (('x', 0), ('y', 4), ('z', 8))
             ]
+            # The ray sensor is an instantaneous XYZ snapshot, not a timed scan.
+            # Supply intensity for FAST-LIO's generic PointXYZI input path.
+            xyzi = np.zeros((len(xyz), 4), dtype=np.float32)
+            xyzi[:, :3] = xyz
+            cloud.fields.append(PointField(name='intensity', offset=12,
+                                           datatype=PointField.FLOAT32, count=1))
             cloud.is_bigendian = False
-            cloud.point_step = 12
+            cloud.point_step = 16
             cloud.row_step = cloud.point_step * cloud.width
             cloud.is_dense = True
-            cloud.data = xyz.tobytes()
+            cloud.data = xyzi.tobytes()
             self.points.publish(cloud)
         if 'd435i_rgb' in values:
             rgb = np.ascontiguousarray(values['d435i_rgb'], dtype=np.uint8)
@@ -239,8 +299,12 @@ def main():
     node = Bridge()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
+    except RuntimeError:
+        # A signal can invalidate the ROS context between executor checks.
+        if rclpy.ok():
+            raise
     finally:
         try:
             node.socket.sendto(json.dumps({'velocity': [0, 0, 0]}).encode(), ('127.0.0.1', 19421))
