@@ -9,20 +9,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
 import rclpy
 from geometry_msgs.msg import TransformStamped
-from nav_msgs.msg import Odometry, OccupancyGrid
+from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy, qos_profile_sensor_data
 from rclpy.time import Time
 from scipy.spatial.transform import Rotation
 from sensor_msgs.msg import LaserScan, PointCloud2
-from sensor_msgs_py.point_cloud2 import create_cloud_xyz32, read_points, read_points_numpy
+from sensor_msgs_py.point_cloud2 import read_points, read_points_numpy
 from std_msgs.msg import Header
 from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformBroadcaster, TransformListener, StaticTransformBroadcaster, TransformException
-from g1_backend.slam_mapping import (
-    OccupancyProjection, VoxelMap, navigation_pose, pose_matrix, write_pcd,
-)
+from g1_backend.slam_mapping import navigation_pose, pose_matrix, write_pcd
 
 
 def matrix_transform(message):
@@ -55,36 +53,29 @@ class SlamAdapter(Node):
         self.odom = self.create_publisher(Odometry, '/odom', 10)
         self.full_odom = self.create_publisher(Odometry, '/odometry/slam_3d', 10)
         self.scan = self.create_publisher(LaserScan, '/scan', 10)
-        map_qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL,
-                             reliability=ReliabilityPolicy.RELIABLE)
-        self.map_points = self.create_publisher(PointCloud2, '/slam/map_points', map_qos)
-        self.grid_pub = self.create_publisher(OccupancyGrid, '/map', map_qos) if self.backend == 'lidar3d' else None
-        self.voxels = VoxelMap()
-        self.projection = OccupancyProjection()
         self.rgb_cloud = None
         self.pending = deque(maxlen=20)
         self.pending_scans = deque(maxlen=10)
         self.previous = None
         self.current_pose = None
         self.latest_stamp = None
-        self.last_projection = -math.inf
         self.create_subscription(Odometry, '/slam/odometry', lambda msg: self.pending.append(msg), qos_profile_sensor_data)
         self.create_subscription(PointCloud2, '/mid360/points',
                                  lambda msg: self.pending_scans.append(msg), qos_profile_sensor_data)
-        self.create_subscription(PointCloud2, '/slam/registered_points' if self.backend == 'lidar3d' else '/slam/map_points',
-                                 self.cloud, qos_profile_sensor_data)
+        map_qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                             reliability=ReliabilityPolicy.RELIABLE)
+        self.create_subscription(PointCloud2, '/slam/map_points', self.cloud, map_qos)
         self.create_timer(0.01, self.process)
         self.create_timer(0.01, self.process_scans)
-        self.create_timer(1.0, self.publish_map)
-        self.create_timer(30.0, self.save_map)
-        self.create_service(Trigger, '/slam/save_map', self.save_service)
+        if self.backend == 'rgb-d':
+            self.create_timer(30.0, self.save_map)
+            self.create_service(Trigger, '/slam/save_map', self.save_service)
         if self.backend == 'lidar3d':
             # FAST-LIO initializes at the IMU origin. Anchor it at nominal standing
             # height, not ground-truth telemetry. Both public maps use floor z=0.
             initial = np.eye(4)
             initial[:3, 3] = self.offset
             self.static_tf.sendTransform([
-                transform_message(np.eye(4), 'map', 'odom', self.get_clock().now().to_msg()),
                 transform_message(initial, 'odom', 'camera_init', self.get_clock().now().to_msg()),
             ])
 
@@ -144,19 +135,9 @@ class SlamAdapter(Node):
         return stamp.sec + stamp.nanosec * 1e-9
 
     def cloud(self, message):
-        if self.backend == 'rgb-d':
-            # This is RTAB-Map's complete optimized cloud, not accumulated raw
-            # frames: retaining it respects corrections after loop closure.
-            self.rgb_cloud = message
-            return
-        xyz = read_points_numpy(message, field_names=['x', 'y', 'z'], skip_nans=True).astype(float)
-        xyz += self.offset
-        self.voxels.add(xyz)
-        timestamp = self.seconds(message.header.stamp)
-        if self.current_pose is not None and timestamp - self.last_projection >= 0.5:
-            self.projection.add(xyz, self.current_pose[:3, 3])
-            self.last_projection = timestamp
-        self.latest_stamp = message.header.stamp
+        # Replace the complete optimized map in both modes, never accumulate
+        # registered scans in a fixed world frame after a loop correction.
+        self.rgb_cloud = message
 
     def process_scans(self):
         # Sensor clouds arrive before the estimated base -> pelvis transform.
@@ -195,31 +176,11 @@ class SlamAdapter(Node):
         self.scan.publish(scan)
         return True
 
-    def publish_map(self):
-        if self.backend != 'lidar3d' or self.latest_stamp is None:
-            return
-        xyz = self.voxels.points()
-        if len(xyz):
-            self.map_points.publish(create_cloud_xyz32(Header(stamp=self.latest_stamp, frame_id='map'), xyz))
-        projected = self.projection.grid()
-        if projected is not None:
-            grid, origin = projected
-            message = OccupancyGrid()
-            message.header = Header(stamp=self.latest_stamp, frame_id='map')
-            message.info.resolution = self.projection.resolution
-            message.info.height, message.info.width = grid.shape
-            message.info.origin.position.x, message.info.origin.position.y = map(float, origin)
-            message.info.origin.orientation.w = 1.0
-            message.data = grid.ravel().tolist()
-            self.grid_pub.publish(message)
-
     def save_map(self):
-        if self.backend == 'lidar3d':
-            xyz, rgb = self.voxels.points(), None
-        elif self.rgb_cloud is not None:
+        if self.rgb_cloud is not None:
             cloud = read_points(self.rgb_cloud, skip_nans=False)
             xyz = np.column_stack([cloud[name].ravel() for name in ('x', 'y', 'z')])
-            rgb = cloud['rgb'].ravel() if 'rgb' in cloud.dtype.names else None
+            rgb = cloud['rgb'].ravel() if self.backend == 'rgb-d' and 'rgb' in cloud.dtype.names else None
         else:
             return 0
         if not len(xyz):
@@ -244,8 +205,9 @@ def main():
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
-        count = node.save_map()
-        print(f'SLAM map saved: {node.output / "map.pcd"} ({count} points)', flush=True)
+        if node.backend == 'rgb-d':
+            count = node.save_map()
+            print(f'SLAM map saved: {node.output / "map.pcd"} ({count} points)', flush=True)
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

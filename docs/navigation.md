@@ -401,7 +401,7 @@ final, sin pruebas gráficas paralelas, completó sin ese error.
 # Instalación local, sin sudo (ROS Jazzy y herramientas de compilación requeridas).
 bash scripts/install_navigation_slam.sh
 
-# Nube geométrica XYZ: FAST-LIO2 + IMU de la parte superior del cuerpo.
+# Nube geométrica XYZ: FAST-LIO2 + IMU, con cierre de bucle LiDAR de RTAB-Map.
 bash scripts/navigation.sh --slam lidar3d
 
 # Nube coloreada XYZRGB: odometría RGB-D y SLAM de RTAB-Map.
@@ -421,18 +421,19 @@ fuera de esta integración. `nav2:=false` permite ejecutar únicamente sensores,
 odometría, mapeo y RViz para comparar los motores.
 
 Los resultados se guardan en una carpeta única bajo `results/navigation/`, o en
-`slam_output`. Ambos escriben **`map.pcd`** cada 30 segundos de simulación y
-al cerrar normalmente. `rgb-d` conserva también **`rtabmap.db`**, con imágenes,
-profundidad, trayectoria y grafo para reutilización/exportación mediante las
-herramientas de RTAB-Map. El PCD visual conserva el campo RGB. El modo RGB-D
+`slam_output`. Ambos escriben **`map.pcd`** y exportan al cerrar normalmente.
+RGB-D lo guarda cada 30 segundos de simulación; LiDAR lo actualiza con cada
+reconstrucción del grafo (hasta una cada 2 segundos de reloj real). Ambos
+conservan **`rtabmap.db`**: RGB-D guarda imágenes y profundidad; LiDAR guarda
+escaneos 3D. Las bases incluyen trayectoria y grafo para las herramientas de RTAB-Map. El PCD visual conserva el campo RGB. El modo RGB-D
 también reconstruye una malla coloreada y guarda `map_mesh.ply`; no utiliza
 texturas UV de las imágenes. Al reutilizar explícitamente una carpeta existente RTAB-Map puede
 abrir su base de datos anterior; usar una carpeta nueva para una sesión nueva.
 
 En RViz, `SLAM 3D map` muestra `/slam/map_points`. Ambos motores proporcionan
 `/odom` y las transformaciones estimadas para Nav2. `/map` es una proyección 2D
-para planificación, adicional al mapa 3D; FAST-LIO la obtiene mediante rayos de
-obstáculos medidos y RTAB-Map mediante su generador de ocupación.
+para planificación, adicional al mapa 3D. RTAB-Map reconstruye esa ocupación
+con los escaneos LiDAR o la profundidad RGB-D y sus poses optimizadas.
 
 En `--slam rgb-d`, RViz permite alternar las casillas:
 
@@ -534,12 +535,67 @@ origen vertical usa la altura nominal de pie del modelo, no la telemetría de
 posición real. Esto supone inicialización de pie sobre el suelo z=0; para otro
 robot o altura inicial deben ajustarse los anclajes y extrínsecos.
 
-FAST-LIO2 proporciona odometría LiDAR–inercial y mapeo incremental; **no añade
-cierre de bucles global** en esta integración. La nube se voxeliza a 8 cm y se
-limita a 400000 vóxeles para acotar memoria; al llegar al límite deja de añadir
-celdas nuevas. La proyección 2D está acotada a ±50 m y está pensada para un
-entorno estático. RTAB-Map sí realiza optimización y cierre de bucles, y su nube
-exportada reemplaza el mapa anterior para respetar esas correcciones.
+En `lidar3d`, **FAST-LIO2 conserva la odometría LiDAR–inercial** y RTAB-Map
+agrega cierres por registro ICP de escaneos 3D y optimización del grafo, siguiendo
+el [ejemplo oficial de SLAM LiDAR de RTAB-Map](https://github.com/introlab/rtabmap_ros/blob/ros2/rtabmap_examples/launch/lidar3d.launch.py).
+No se usan imágenes ni ground truth para cerrar bucles. La configuración está
+en `configs/navigation/rtabmap_lidar.yaml`: búsqueda espacial a 2 m, memoria
+reciente de 10 nodos, ICP con vóxeles de 10 cm y al menos 40% de correspondencias.
+Se rechazan correcciones ICP mayores a 75 cm o 0.35 rad y cierres que producen
+un error inconsistente en el grafo. Esto permite corregir deriva moderada al
+revisitar lugares; no es reconocimiento global independiente de la posición.
+Si la deriva deja el lugar fuera del radio de búsqueda o el entorno carece de
+geometría distintiva, el cierre puede no detectarse o ser rechazado.
+
+RTAB-Map publica el único `map -> odom`, mientras que `/odom` y
+`odom -> base_link` siguen continuos desde FAST-LIO2. Así las correcciones
+alcanzan Nav2 sin saltos en las velocidades locales. `/slam/registered_points`
+sigue disponible para inspeccionar FAST-LIO2 en `camera_init`; la nube pública
+`/slam/map_points` se reconstruye desde los escaneos con las poses optimizadas,
+eliminando puntos anteriores a cada corrección. Conserva toda la altura del
+escaneo, separada de los filtros de altura del mapa de navegación.
+
+La nube XYZ se voxeliza a 8 cm, limita su salida a 400000 puntos y conserva
+hasta 1000 escaneos para acotar memoria; al superar ese límite retira los más
+antiguos de la visualización. `rtabmap.db` conserva la historia completa.
+`loop_closures.json` registra cierres aceptados, nodos, enlaces y `map_to_odom`;
+`/slam/info` y `/slam/map_graph` permiten inspeccionar el backend en ROS.
+`/slam/save_map` devuelve la última nube optimizada exportada. El mapa 2D se
+corrige directamente desde el grafo de RTAB-Map. Se mantiene la hipótesis de
+entorno mayormente estático: el cierre no resuelve obstáculos móviles.
+
+Para verificar el backend con un recorrido sintético y deriva conocida, en un
+dominio ROS separado de la navegación:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source scripts/slam_env.sh
+ROS_DOMAIN_ID=46 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  /usr/bin/python3 scripts/check_navigation_lidar_loop.py \
+  --output-dir results/navigation/lidar_loop_validation
+```
+
+La carpeta de validación debe ser nueva. Esta prueba arranca el mismo backend
+LiDAR de producción, inyecta 22 cm de deriva en un recorrido cerrado, exige
+cierres aceptados y enlaces de grafo, y verifica reducción del error al regresar.
+Los datos sintéticos tienen geometría ideal; no representan precisión real del
+robot. Los mapas exportados y `validation.json` quedan junto a los logs.
+
+Validación de esta integración: 29 pruebas pasaron. El backend final aceptó
+32 cierres en el recorrido sintético y redujo los 22 cm de deriva inyectada.
+MuJoCo registró 12 cierres y el objetivo Nav2 `(1, 0)` terminó en `SUCCEEDED`.
+El objetivo de regreso se interrumpió al alcanzar la duración de la sesión,
+por lo que esa prueba no valida el regreso completo. Al cerrar también se
+observó un fallo del proceso nativo `collision_monitor`; FAST-LIO2, el grafo y
+la exportación terminaron. Informes en `results/navigation/lidar_loop_final/`,
+`lidar_loop_final_goal.json`, `lidar_loop_return_goal.json` y
+`lidar_loop_backend_verified/validation.json`.
+
+El script configura [publicación DDS asíncrona](https://github.com/ros2/rmw_fastrtps#change-publication-mode)
+para reducir bloqueos de envío durante el procesamiento. En las pruebas con
+publicación síncrona se observaron respuestas de servicios Nav2 que agotaban su
+tiempo y detenían su activación; los siguientes arranques asíncronos completaron
+esa activación.
 
 Los estimadores no consumen `/ground_truth/odom`; ese topic permanece aislado
 para evaluación. El bridge inhibe comandos cuando falta odometría reciente.

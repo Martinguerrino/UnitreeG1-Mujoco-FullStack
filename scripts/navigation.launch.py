@@ -115,7 +115,7 @@ def prepare(context):
         slam_output = Path(slam_output).expanduser().resolve() if slam_output else directory / (slam_backend + '_' + datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f'))
         slam_output.mkdir(parents=True, exist_ok=True)
         database = slam_output / 'rtabmap.db'
-        if slam_backend == 'rgb-d' and database.exists():
+        if database.exists():
             try:
                 with sqlite3.connect(database.as_uri() + '?mode=ro', uri=True) as connection:
                     tables = {row[0] for row in connection.execute(
@@ -264,6 +264,29 @@ def prepare(context):
                 output='screen',
             )
             actions.append(engine)
+            mapping = Node(
+                package='rtabmap_slam', executable='rtabmap',
+                parameters=[str(ROOT / 'configs/navigation/rtabmap_lidar.yaml'),
+                            {'database_path': str(slam_output / 'rtabmap.db')}],
+                remappings=[('odom', '/odom'), ('scan_cloud', '/mid360/points'),
+                            ('mapData', '/slam/map_data'), ('mapGraph', '/slam/map_graph'),
+                            ('get_map_data', '/slam/get_map_data'), ('info', '/slam/info'),
+                            ('cloud_map', '/slam/occupancy_points'), ('grid_map', '/map')],
+                output='screen',
+            )
+            graph_map = ExecuteProcess(
+                cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_lidar_map.py'),
+                     '--ros-args', '-p', 'use_sim_time:=true',
+                     '-p', 'output_dir:=' + str(slam_output)], output='screen',
+                additional_env={'OMP_NUM_THREADS': '1'},
+            )
+            actions.extend([mapping, graph_map])
+            for essential in (engine, graph_map):
+                actions.append(RegisterEventHandler(OnProcessExit(
+                    target_action=essential, on_exit=lambda event, context: [
+                        EmitEvent(event=Shutdown(reason='LiDAR SLAM process stopped'))]
+                    if not context.is_shutdown else [],
+                )))
         else:
             actions.append(ExecuteProcess(
                 cmd=[str(ROOT / 'artifacts/slam/tsdf_venv/bin/python'), str(ROOT / 'scripts/navigation_mesh.py'),
@@ -323,10 +346,10 @@ def prepare(context):
                                          ('grid_map', '/map')], output='screen',
             )
             actions.extend([engine, mapping])
-            actions.append(RegisterEventHandler(OnProcessExit(
-                target_action=mapping, on_exit=lambda event, context: [
-                    EmitEvent(event=Shutdown(reason='RTAB-Map stopped'))] if not context.is_shutdown else [],
-            )))
+        actions.append(RegisterEventHandler(OnProcessExit(
+            target_action=mapping, on_exit=lambda event, context: [
+                EmitEvent(event=Shutdown(reason='RTAB-Map stopped'))] if not context.is_shutdown else [],
+        )))
     if not ideal and LaunchConfiguration('rviz').perform(context) == 'true':
         actions.append(ExecuteProcess(
             cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_camera_plane.py')],

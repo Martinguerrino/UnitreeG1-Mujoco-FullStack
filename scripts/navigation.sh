@@ -60,6 +60,8 @@ if [[ -d "$ROOT_DIR/artifacts/slam" ]]; then
 fi
 set -u
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+# Avoid blocking service responses while LiDAR/graph processing is busy.
+export RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS
 export ROS_DOMAIN_ID=43
 export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 export OPENBLAS_NUM_THREADS=1
@@ -72,7 +74,7 @@ bash "$ROOT_DIR/scripts/recover_navigation_lock.sh" /tmp/g1_backend_domain_44.lo
 PACKAGES=(nav2_bringup)
 case "$SLAM_MODE" in
   slam_toolbox) PACKAGES+=(slam_toolbox) ;;
-  lidar3d) PACKAGES+=(fast_lio) ;;
+  lidar3d) PACKAGES+=(fast_lio rtabmap_slam) ;;
   rgb-d) PACKAGES+=(rtabmap_odom rtabmap_slam) ;;
   *) echo "SLAM inválido: $SLAM_MODE" >&2; exit 2 ;;
 esac
@@ -83,8 +85,10 @@ for package in "${PACKAGES[@]}"; do
   fi
 done
 cd "$ROOT_DIR"
-if [[ "$SLAM_MODE" == rgb-d ]]; then
+if [[ "$SLAM_MODE" == rgb-d || "$SLAM_MODE" == lidar3d ]]; then
   bash "$ROOT_DIR/scripts/build_navigation_mesh.sh"
+fi
+if [[ "$SLAM_MODE" == rgb-d ]]; then
   if ! "$ROOT_DIR/artifacts/slam/tsdf_venv/bin/python" -c 'import open3d' >/dev/null 2>&1; then
     echo 'Falta Open3D para TSDF: bash scripts/install_navigation_tsdf.sh' >&2
     exit 1
