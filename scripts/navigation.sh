@@ -83,4 +83,7 @@ for package in "${PACKAGES[@]}"; do
   fi
 done
 cd "$ROOT_DIR"
+if [[ "$SLAM_MODE" == rgb-d ]]; then
+  bash "$ROOT_DIR/scripts/build_navigation_mesh.sh"
+fi
 exec ros2 launch scripts/navigation.launch.py "${LAUNCH_ARGS[@]}"

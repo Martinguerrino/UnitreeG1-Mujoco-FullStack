@@ -192,6 +192,14 @@ def prepare(context):
                       'Reliability Policy': 'Reliable',
                       'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
         })
+        if slam_backend == 'rgb-d':
+            displays.append({
+                'Class': 'rviz_default_plugins/Marker', 'Name': 'SLAM 3D mesh',
+                'Enabled': False, 'Value': False, 'Alpha': 1.0,
+                'Topic': {'Value': '/slam/map_mesh', 'Depth': 1,
+                          'Reliability Policy': 'Reliable',
+                          'Durability Policy': 'Transient Local', 'History Policy': 'Keep Last'},
+            })
     rviz_config['Visualization Manager']['Views']['Current'] = {
         'Class': 'rviz_default_plugins/Orbit', 'Name': 'G1 3D', 'Distance': 7.0,
         'Pitch': 0.55, 'Yaw': 0.8, 'Target Frame': 'base_link',
@@ -257,6 +265,11 @@ def prepare(context):
             )
             actions.append(engine)
         else:
+            actions.append(ExecuteProcess(
+                cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_mesh.py'),
+                     '--ros-args', '-p', 'use_sim_time:=true',
+                     '-p', 'output_dir:=' + str(slam_output)], output='screen',
+            ))
             rgbd_topics = [
                 ('rgb/image', '/camera/color/image_raw'),
                 ('depth/image', '/camera/depth/image_rect_raw'),

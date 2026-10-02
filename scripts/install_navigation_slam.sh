@@ -41,4 +41,5 @@ CMAKE_BUILD_PARALLEL_LEVEL=2 colcon build --base-paths "$TASK_WS/src" \
   --build-base "$TASK_WS/build" --install-base "$TASK_WS/install" \
   --parallel-workers 1 --cmake-args -DCMAKE_BUILD_TYPE=Release \
   -DPYTHON_EXECUTABLE=/usr/bin/python3 -DPython3_EXECUTABLE=/usr/bin/python3
+bash "$ROOT_DIR/scripts/build_navigation_mesh.sh"
 printf 'SLAM installed in %s\n' "$TASK_WS"

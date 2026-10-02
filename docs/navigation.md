@@ -424,14 +424,42 @@ Los resultados se guardan en una carpeta única bajo `results/navigation/`, o en
 `slam_output`. Ambos escriben **`map.pcd`** cada 30 segundos de simulación y
 al cerrar normalmente. `rgb-d` conserva también **`rtabmap.db`**, con imágenes,
 profundidad, trayectoria y grafo para reutilización/exportación mediante las
-herramientas de RTAB-Map. El PCD visual conserva el campo RGB; no es una malla
-texturizada. Al reutilizar explícitamente una carpeta existente RTAB-Map puede
+herramientas de RTAB-Map. El PCD visual conserva el campo RGB. El modo RGB-D
+también reconstruye una malla coloreada y guarda `map_mesh.ply`; no utiliza
+texturas UV de las imágenes. Al reutilizar explícitamente una carpeta existente RTAB-Map puede
 abrir su base de datos anterior; usar una carpeta nueva para una sesión nueva.
 
 En RViz, `SLAM 3D map` muestra `/slam/map_points`. Ambos motores proporcionan
 `/odom` y las transformaciones estimadas para Nav2. `/map` es una proyección 2D
 para planificación, adicional al mapa 3D; FAST-LIO la obtiene mediante rayos de
 obstáculos medidos y RTAB-Map mediante su generador de ocupación.
+
+En `--slam rgb-d`, RViz permite alternar las casillas:
+
+- **SLAM 3D map:** nube de puntos coloreados, activada inicialmente.
+- **SLAM 3D mesh:** superficies trianguladas coloreadas, desactivada inicialmente.
+
+Para ver solo la malla, desactivar `SLAM 3D map` y activar `SLAM 3D mesh`.
+También pueden mostrarse ambas a la vez. Las visualizaciones de sensores, como
+`MID-360 3D` y `LaserScan`, tienen casillas independientes.
+
+La malla se publica como un `Marker/TRIANGLE_LIST` en `/slam/map_mesh`, en el
+mismo frame `map` que la nube. El último resultado permanece disponible para
+RViz al habilitar la casilla. Se reconstruye cuando cambia el mapa, como máximo
+cada 5 segundos de reloj real, en un nodo independiente con un trabajador PCL
+de prioridad baja. Se reemplaza por completo para respetar los cierres de bucles.
+
+Se usa [triangulación local GP3 de PCL](https://pointclouds.org/documentation/tutorials/greedy_projection.html),
+con vóxeles de 8 cm, aristas de hasta 25 cm y límites de 50000 vértices/100000
+triángulos. En mapas grandes aumenta el tamaño del vóxel para mantener el límite.
+Las zonas sin suficiente información pueden quedar con huecos; no se inventan
+superficies para cerrarlos. `map_mesh.ply` conserva geometría, colores por vértice
+y coordenadas del mapa y se actualiza automáticamente junto con la visualización.
+
+El instalador compila `scripts/native/cloud_mesh.cpp` usando PCL, dependencia
+ya requerida por FAST-LIO2. `navigation.sh --slam rgb-d` también compila el
+helper si falta o si cambió su código; puede prepararse por separado con
+`bash scripts/build_navigation_mesh.sh`.
 
 Nav2 arranca cuando recibe un mapa, odometría y un `/scan` reciente, después de la
 estabilización inicial del robot. La espera de arranque admite hasta 180
