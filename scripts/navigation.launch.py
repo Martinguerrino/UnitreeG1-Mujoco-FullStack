@@ -5,11 +5,14 @@ import importlib.util
 import tempfile
 import sys
 import sqlite3
+import json
+import shutil
 from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import yaml
+from g1_backend.slam_sessions import restore_database
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
@@ -47,11 +50,11 @@ def prepare(context):
     mode = LaunchConfiguration('mode').perform(context)
     if mode not in ('mapping', 'localization'):
         raise ValueError('mode must be mapping or localization')
-    if sensor_slam and mode != 'mapping':
-        raise ValueError('3D backends currently support mapping; mode:=localization uses slam_toolbox/AMCL')
     map_path = LaunchConfiguration('map').perform(context)
+    if mode == 'localization':
+        map_path = str(Path(map_path).expanduser().resolve())
     if mode == 'localization' and not Path(map_path).is_file():
-        raise ValueError('localization requires map:=/absolute/path/map.yaml')
+        raise ValueError('localization requires map:=/absolute/path/' + ('rtabmap.db' if sensor_slam else 'map.yaml'))
     nav = Path(get_package_share_directory('nav2_bringup'))
     description = Path(get_package_share_directory('g1_description'))
     params = yaml.safe_load((nav / 'params/nav2_params.yaml').read_text())
@@ -115,6 +118,20 @@ def prepare(context):
         slam_output = Path(slam_output).expanduser().resolve() if slam_output else directory / (slam_backend + '_' + datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f'))
         slam_output.mkdir(parents=True, exist_ok=True)
         database = slam_output / 'rtabmap.db'
+        manifest = slam_output / 'slam_session.json'
+        if manifest.exists() and json.loads(manifest.read_text())['backend'] != slam_backend:
+            raise ValueError('slam_output contains a map from another backend')
+        if mode == 'localization':
+            source = Path(map_path).expanduser().resolve()
+            restore_database(source, database, slam_backend)
+            if slam_backend == 'rgb-d':
+                for filename in ('map_mesh.ply', 'map_mesh.json'):
+                    if (source.parent / filename).is_file():
+                        shutil.copy2(source.parent / filename, slam_output / filename)
+        (slam_output / 'slam_session.json').write_text(json.dumps({
+            'backend': slam_backend, 'mode': mode,
+            'source_map': str(Path(map_path).resolve()) if mode == 'localization' else None,
+        }, indent=2))
         if database.exists():
             try:
                 with sqlite3.connect(database.as_uri() + '?mode=ro', uri=True) as connection:
@@ -195,7 +212,7 @@ def prepare(context):
         if slam_backend == 'rgb-d':
             displays.append({
                 'Class': 'rviz_default_plugins/Marker', 'Name': 'SLAM 3D mesh',
-                'Enabled': False, 'Value': False, 'Alpha': 1.0,
+                'Enabled': mode == 'localization', 'Value': mode == 'localization', 'Alpha': 1.0,
                 'Topic': {'Value': '/slam/map_mesh', 'Depth': 1,
                           'Reliability Policy': 'Reliable',
                           'Durability Policy': 'Transient Local', 'History Policy': 'Keep Last'},
@@ -277,7 +294,10 @@ def prepare(context):
             mapping = Node(
                 package='rtabmap_slam', executable='rtabmap',
                 parameters=[str(ROOT / 'configs/navigation/rtabmap_lidar.yaml'),
-                            {'database_path': str(slam_output / 'rtabmap.db')}],
+                            {'database_path': str(slam_output / 'rtabmap.db'),
+                             'Mem/IncrementalMemory': 'false' if mode == 'localization' else 'true',
+                             'Mem/InitWMWithAllNodes': 'true' if mode == 'localization' else 'false',
+                             'RGBD/StartAtOrigin': 'true' if mode == 'localization' else 'false'}],
                 remappings=[('odom', '/odom'), ('scan_cloud', '/mid360/points'),
                             ('mapData', '/slam/map_data'), ('mapGraph', '/slam/map_graph'),
                             ('get_map_data', '/slam/get_map_data'), ('info', '/slam/info'),
@@ -304,6 +324,8 @@ def prepare(context):
                      '-p', 'voxel_size:=' + LaunchConfiguration('mesh_voxel_size').perform(context),
                      '-p', 'update_period:=' + LaunchConfiguration('mesh_update_period').perform(context),
                      '-p', 'max_frames:=' + LaunchConfiguration('mesh_max_frames').perform(context),
+                     *(['-p', 'saved_mesh:=' + str(slam_output / 'map_mesh.ply')]
+                       if mode == 'localization' and (slam_output / 'map_mesh.ply').is_file() else []),
                      '-p', 'output_dir:=' + str(slam_output)], output='screen',
                 additional_env={'OMP_NUM_THREADS': '1'},
             ))
@@ -335,6 +357,9 @@ def prepare(context):
                              'approx_sync_max_interval': 0.2,
                              'qos_image': 2, 'qos_camera_info': 1, 'qos_odom': 1,
                              'database_path': str(slam_output / 'rtabmap.db'),
+                             'Mem/IncrementalMemory': 'false' if mode == 'localization' else 'true',
+                             'Mem/InitWMWithAllNodes': 'true' if mode == 'localization' else 'false',
+                             'RGBD/StartAtOrigin': 'true' if mode == 'localization' else 'false',
                              'wait_for_transform': 0.3, 'publish_tf': True,
                              'Rtabmap/DetectionRate': '2.0',
                              'RGBD/LinearUpdate': '0.0', 'RGBD/AngularUpdate': '0.0',
@@ -351,6 +376,7 @@ def prepare(context):
                              'cloud_output_voxelized': True}],
                 remappings=rgbd_topics + [('odom', '/odom'),
                                          ('mapData', '/slam/map_data'),
+                                         ('info', '/slam/info'),
                                          ('get_map_data', '/slam/get_map_data'),
                                          ('cloud_map', '/slam/map_points'),
                                          ('grid_map', '/map')], output='screen',
@@ -388,7 +414,7 @@ def prepare(context):
             launch_arguments={'use_sim_time': 'true',
                               'slam_params_file': str(ROOT / 'configs/navigation/slam.yaml')}.items(),
         ))
-    elif mode == 'localization':
+    elif mode == 'localization' and not sensor_slam:
         actions.append(IncludeLaunchDescription(
             PythonLaunchDescriptionSource(str(nav / 'launch/localization_launch.py')),
             launch_arguments={'use_sim_time': 'true', 'map': map_path,
@@ -410,7 +436,9 @@ def prepare(context):
         if sensor_slam:
             readiness = ExecuteProcess(
                 cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_slam_ready.py'),
-                     '--ros-args', '-p', 'use_sim_time:=true'], output='screen',
+                     '--ros-args', '-p', 'use_sim_time:=true',
+                     '-p', 'require_localization:=' + str(mode == 'localization').lower(),
+                     '-p', 'report_path:=' + str(slam_output / 'readiness.json')], output='screen',
             )
 
             def start_navigation(event, context):

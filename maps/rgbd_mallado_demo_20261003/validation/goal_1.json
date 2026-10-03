@@ -1,0 +1,33 @@
+{
+  "scans": 168,
+  "moving_commands": 369,
+  "max_displacement": 0.612332675439614,
+  "controller_commands": 201,
+  "assisted_commands": 369,
+  "monitor_stops": 0,
+  "initial_cost": 0,
+  "monitor_states": {},
+  "nav2_active": true,
+  "goal_accepted": true,
+  "goal_status": 4,
+  "start": [
+    -0.02019166946411133,
+    -0.0002685728541109713
+  ],
+  "end": [
+    0.45654135942459106,
+    0.013831131160259247
+  ],
+  "passed": true,
+  "map_start": [
+    -0.0194205457744548,
+    -0.000810264182162983
+  ],
+  "map_end": [
+    0.45651529881528535,
+    0.01430190597979537
+  ],
+  "initial_goal_distance": 0.7194210020637841,
+  "final_goal_distance": 0.24390437516712296,
+  "already_within_position_tolerance": false
+}

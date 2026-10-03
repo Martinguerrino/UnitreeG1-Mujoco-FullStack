@@ -676,3 +676,120 @@ pero no completó el objetivo antes del límite de tiempo. Reportes:
 no garantiza espacio para girar o absorber oscilaciones y error de odometría.
 Se conservaron los controles de colisión y márgenes: todavía no se acredita
 navegación fiable en esos pasillos.
+
+## Recorridos y localización 3D en otra sesión
+
+Los dos backends admiten `mode:=localization map:=/ruta/rtabmap.db`.
+Se mantienen sus odometrías de sensores (FAST-LIO2 o RGB-D); RTAB-Map
+compara las observaciones contra el mapa guardado con `Mem/IncrementalMemory=false`
+y `Mem/InitWMWithAllNodes=true`. No se inicia AMCL en estos modos.
+La configuración sigue el [ejemplo oficial de RTAB-Map](https://github.com/introlab/rtabmap_ros/blob/ros2/rtabmap_demos/launch/robot_mapping_demo.launch.py).
+
+Primera sesión, elegir `lidar3d` o `rgb-d`:
+
+```bash
+bash scripts/navigation.sh --slam lidar3d slam_output:="$PWD/maps/lidar_training"
+```
+
+Recorrer el entorno con Nav2 Goal. Para validar una secuencia desde otra terminal
+con ROS y el entorno SLAM cargados:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source scripts/slam_env.sh
+export ROS_DOMAIN_ID=43 RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+export RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS
+python3 scripts/check_navigation_route.py \
+  --goal 1 0 0 --goal 0.2 0 0 --timeout 90 \
+  --output results/navigation/training_route
+```
+
+Cada objetivo tiene un informe separado; `route.json` exige que todos lleguen
+con lecturas de sensores y movimiento comprobado para destinos fuera de la tolerancia inicial. Se registran posiciones y distancia al objetivo en el marco del mapa; un destino ya cercano puede completarse sin exigir 25 cm de marcha.
+La secuencia se detiene ante el primer fallo. Los destinos deben elegirse
+según las zonas libres del mapa, en metros y yaw en radianes.
+
+Cerrar la primera sesión con Ctrl+C y esperar el mensaje de RTAB-Map que
+confirma el guardado de la base de datos. `/slam/save_map` exporta la nube PCD;
+**el archivo necesario para localizarse es `rtabmap.db`**, no la nube ni la malla.
+Conservar también `slam_session.json`, que identifica el backend.
+
+Segunda sesión:
+
+```bash
+bash scripts/navigation.sh --slam lidar3d mode:=localization \
+  map:="$PWD/maps/lidar_training/rtabmap.db" \
+  slam_output:="$PWD/results/navigation/lidar_localization"
+```
+
+Para RGB-D sustituir `lidar3d` por `rgb-d` y usar su propia base de datos.
+La carpeta de salida debe ser nueva: se copia la base mediante SQLite backup
+para conservar intacto el mapa original. No se agregan nuevos nodos al mapa
+cuando se localiza. Nav2 espera una coincidencia aceptada con el mapa, además
+de mapa, odometría y escaneos recientes; si no la consigue, no se activa.
+`readiness.json` registra los identificadores de las coincidencias y el resultado.
+
+En LiDAR, el registro ICP por proximidad necesita arrancar cerca de una zona
+conocida y con orientación compatible. No garantiza localización global desde
+cualquier lugar: `RGBD/StartAtOrigin=true` sólo proporciona una hipótesis inicial,
+y no cuenta como coincidencia verificada. RGB-D requiere suficientes rasgos
+visuales compartidos. La posición perfecta de MuJoCo no alimenta ninguno de
+los estimadores.
+
+Validación del 2026-10-03:
+
+- Mapa LiDAR nuevo guardado en
+  `results/navigation/route_training_lidar_20261003/rtabmap.db` (10 nodos).
+  La sesión nueva `route_localization_lidar_20261003` reconoció el nodo 1
+  y completó dos destinos consecutivos `(0.7, 0)` y `(1.2, 0)`.
+  Informes: `readiness.json` y `validation/route.json` dentro de esa carpeta.
+  La distancia final medida del segundo tramo fue 0.156 m; la del primero,
+  0.395 m. El goal checker stateful puede mantener el criterio XY mientras
+  alinea yaw y la asistencia añade traslación: éxito de Nav2 no acredita
+  precisión fina ni ausencia de deriva durante el giro final.
+- RGB-D recuperó el mapa de `clearance_rgbd/rtabmap.db` (199 nodos), con
+  coincidencias visuales registradas en
+  `results/navigation/relocalization_rgbd_20261003/readiness.json`.
+  Hubo llegadas aisladas y también recorridos que no completaron todos sus
+  tramos; no se consideran aprobados por reconocer el mapa solamente.
+- `results/navigation/session_restore_integrity_20261003.json` registra
+  integridad SQLite y recuentos idénticos de nodos antes/después de localizar.
+  Las pruebas unitarias también verifican que escribir en la copia no cambia
+  el hash del mapa original y rechazan mapas vacíos o de otro backend.
+
+La primera prueba de construcción del mapa LiDAR activó parcialmente Nav2,
+pero el planner no completó su activación y no se envió ningún objetivo.
+El informe `route_training_lidar_20261003/validation/route.json` conserva ese
+fallo; el recorrido satisfactorio corresponde a la sesión de localización.
+Los ensayos junto a pared con el mapa LiDAR anterior tampoco completaron el
+recorrido dentro del plazo. Estas diferencias quedan registradas para evitar
+confundir una prueba puntual con fiabilidad general.
+
+El recorrido RGB-D final también pasó sus dos destinos `(0.6, -0.5)` y
+`(1.1, -0.7)` en una sesión recuperada. Informe:
+`results/navigation/route_localization_rgbd_verified/validation_after_tf_ready/route.json`.
+Las distancias finales medidas fueron 0.107 m y 0.290 m, respectivamente.
+El intento inmediato tras activación falló por no estar disponible aún TF en
+el navegador. El comprobador ahora exige TF local y espera 1 s adicional
+para su propagación antes de enviar el objetivo. El mapa cargado se conserva
+sin añadir nodos; las estimaciones siguen dependiendo de los sensores.
+
+Verificación de código: 34 tests satisfactorios (incluidos aislamiento de base
+SQLite y regresiones del puente, nubes, mallas y TSDF), Ruff y `git diff --check`.
+
+Mapa RGB-D con mallado preparado el 2026-10-03:
+`maps/rgbd_mallado_demo_20261003/`. Se recorrieron dos destinos y se guardaron
+110 nodos en RTAB-Map, con una malla TSDF coloreada de 96 648 triángulos.
+Es el sector observado durante ese recorrido; no es un relevamiento completo
+de toda la instalación. Para probarlo con RViz y el simulador:
+
+```bash
+bash scripts/navigation.sh --slam rgb-d mode:=localization \
+  map:="$PWD/maps/rgbd_mallado_demo_20261003/rtabmap.db"
+```
+
+Si existe `map_mesh.ply` junto a la base, la sesión de localización copia
+la malla y sus metadatos, publica directamente esa geometría en
+`/slam/map_mesh` y habilita **SLAM 3D mesh** en RViz. No sustituye la malla
+completa por una reconstrucción parcial de las imágenes de la sesión nueva.
+Los cambios del mapa durante mapping siguen reconstruyendo TSDF normalmente.

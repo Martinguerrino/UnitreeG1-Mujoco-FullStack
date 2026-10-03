@@ -1,17 +1,31 @@
 """Wait for a working sensor SLAM map and odometry before starting Nav2."""
 import time
+import json
+from pathlib import Path
 
 import rclpy
 from nav_msgs.msg import Odometry, OccupancyGrid
 from sensor_msgs.msg import LaserScan
 from rclpy.qos import qos_profile_sensor_data
+from rtabmap_msgs.msg import Info
 
 
 def main():
     rclpy.init()
     node = rclpy.create_node('g1_slam_ready')
     node.declare_parameter('startup_timeout', 180.0)
-    ready = {'map': False, 'odom': False, 'scan': False}
+    node.declare_parameter('require_localization', False)
+    node.declare_parameter('report_path', '')
+    matches = []
+    ready = {'map': False, 'odom': False, 'scan': False,
+             'localized': not node.get_parameter('require_localization').value}
+    def localization(message):
+        if message.loop_closure_id > 0 or message.proximity_detection_id > 0:
+            ready['localized'] = True
+            matches.append({'ref_id': message.ref_id,
+                            'matched_id': message.loop_closure_id or message.proximity_detection_id})
+            node.get_logger().info('Sensor match accepted against saved map')
+    node.create_subscription(Info, '/slam/info', localization, 10)
     def odom(message):
         timestamp = message.header.stamp.sec + message.header.stamp.nanosec * 1e-9
         now = node.get_clock().now().nanoseconds * 1e-9
@@ -38,6 +52,12 @@ def main():
             node.get_logger().error('Timed out waiting for a SLAM map and recent odometry/scan')
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass
+    report_path = node.get_parameter('report_path').value
+    if report_path:
+        Path(report_path).write_text(json.dumps({
+            'ready': ready, 'sensor_matches': matches, 'passed': result == 0,
+            'elapsed_seconds': time.monotonic() - started,
+        }, indent=2))
     node.destroy_node()
     if rclpy.ok():
         rclpy.shutdown()

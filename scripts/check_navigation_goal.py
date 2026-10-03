@@ -17,6 +17,7 @@ from rclpy.action import ActionClient
 from rclpy.parameter import Parameter
 from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import LaserScan
+from tf2_ros import Buffer, TransformListener, TransformException
 
 
 def main():
@@ -32,6 +33,14 @@ def main():
     rclpy.init()
     node = rclpy.create_node('g1_navigation_goal_check')
     node.set_parameters([Parameter('use_sim_time', value=True)])
+    transforms = Buffer()
+    listener = TransformListener(transforms, node)
+    def map_position():
+        try:
+            transform = transforms.lookup_transform('map', 'base_link', rclpy.time.Time())
+            return [transform.transform.translation.x, transform.transform.translation.y]
+        except TransformException:
+            return None
     observed = {'scans': 0, 'moving_commands': 0, 'max_displacement': 0.0}
     positions = {}
     diagnostics = {'controller_commands': 0, 'assisted_commands': 0,
@@ -77,12 +86,19 @@ def main():
             future = lifecycle.call_async(GetState.Request())
             rclpy.spin_until_future_complete(node, future, timeout_sec=1)
             if (future.done() and future.result().current_state.id == State.PRIMARY_STATE_ACTIVE
-                    and 'local' in costmaps):
+                    and 'local' in costmaps and map_position() is not None):
                 active = True
                 break
     status = None
     accepted = False
+    map_start = None
     if active:
+        # Lifecycle activation precedes discovery of TF in the navigator's own
+        # listener. Allow two RTAB-Map publication periods before the first goal.
+        settle_until = time.monotonic() + 1.0
+        while rclpy.ok() and time.monotonic() < settle_until:
+            rclpy.spin_once(node, timeout_sec=.05)
+        map_start = map_position()
         positions['start'] = positions['latest']
         grid = costmaps['local']
         x = int((positions['start'][0] - grid.info.origin.position.x) / grid.info.resolution)
@@ -107,17 +123,26 @@ def main():
             else:
                 cancellation = handle.cancel_goal_async()
                 rclpy.spin_until_future_complete(node, cancellation, timeout_sec=3)
+    map_end = map_position()
+    initial_distance = math.dist(map_start, (args.x, args.y)) if map_start else None
+    already_close = initial_distance is not None and initial_distance <= .25
+    required_motion = min(.25, max(0., initial_distance - .25) / 2) if initial_distance is not None else .25
     passed = (status == GoalStatus.STATUS_SUCCEEDED and observed['scans'] > 0
-              and observed['moving_commands'] > 0 and observed['max_displacement'] > .25)
+              and (already_close or (observed['moving_commands'] > 0
+                   and observed['max_displacement'] > required_motion)))
     if args.require_inflated_start:
         passed = passed and diagnostics['initial_cost'] is not None and 0 < diagnostics['initial_cost'] < 99
     report = {**observed, **diagnostics, 'nav2_active': active, 'goal_accepted': accepted,
               'goal_status': status, 'start': positions.get('start'),
               'end': positions.get('latest'), 'passed': passed}
+    report.update(map_start=map_start, map_end=map_end, initial_goal_distance=initial_distance,
+                  final_goal_distance=math.dist(map_end, (args.x, args.y)) if map_end else None,
+                  already_within_position_tolerance=already_close)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2))
     print(json.dumps(report, indent=2))
     node.destroy_node()
+    del listener
     rclpy.shutdown()
     return 0 if passed else 1
 

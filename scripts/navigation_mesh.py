@@ -16,7 +16,7 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from rtabmap_msgs.msg import MapData
 from rtabmap_msgs.srv import GetMap
-from std_msgs.msg import ColorRGBA
+from std_msgs.msg import ColorRGBA, Header
 from visualization_msgs.msg import Marker
 from g1_backend.slam_tsdf import ImageDecoder, RGBDFrame, TSDFReconstructor, same_view, transform_matrix
 
@@ -58,6 +58,8 @@ class MeshPublisher(Node):
         self.submitted = 0
         self.future = None
         self.next_update = 0.0
+        self.saved_mesh = self.declare_parameter('saved_mesh', '').value
+        self.saved_published = False
         self.create_timer(.2, self.poll)
         self.get_logger().info('TSDF mesh: 3 cm default voxels, optimized RTAB-Map RGB-D keyframes')
 
@@ -137,6 +139,17 @@ class MeshPublisher(Node):
                                f'{integrated} integrated frames, rebuilt={rebuilt}')
 
     def poll(self):
+        if self.saved_mesh:
+            if not self.saved_published:
+                mesh = o3d.io.read_triangle_mesh(self.saved_mesh)
+                if not mesh.has_triangles() or not mesh.has_vertex_colors():
+                    raise ValueError('Saved mesh must contain triangles and vertex colors')
+                header = Header(frame_id='map', stamp=self.get_clock().now().to_msg())
+                self.publish_result((header, np.asarray(mesh.vertices),
+                                     np.asarray(mesh.vertex_colors), np.asarray(mesh.triangles), 0, False))
+                self.saved_published = True
+                self.get_logger().info(f'Loaded saved mesh: {self.saved_mesh}')
+            return
         # Restore image data if this node starts after RTAB-Map or a database is reused.
         if not self.initial_loaded:
             if self.initial_request is None and self.client.service_is_ready():
@@ -168,7 +181,7 @@ class MeshPublisher(Node):
     def finish(self):
         # Finish a current snapshot and export the latest received graph on normal shutdown.
         self.pool.shutdown(wait=True, cancel_futures=False)
-        if self.frames and self.version != self.submitted:
+        if not self.saved_mesh and self.frames and self.version != self.submitted:
             self.reconstruct(self.header, dict(self.frames), dict(self.poses))
 
 
