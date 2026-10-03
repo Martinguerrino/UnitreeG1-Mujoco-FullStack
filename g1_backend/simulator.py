@@ -227,9 +227,17 @@ def run_simulator(config, initial_q, pipe, stop, release):
         previous_contacts = set()
         next_telemetry = 0.0
         navigation_imu = []
+        feet_samples = []
+        feet_estimator = None
+        next_feet = 0.0
+        if config.get('navigation', {}).get('feet_estimation'):
+            from .feet_estimation import FeetEstimator
+            feet_estimator = FeetEstimator(body_model)
         from .sensor_effects import SensorEffects
         effects = (SensorEffects(config['sensor_effects'], config['seed'] + 505)
                    if config.get('sensor_effects') else None)
+        feet_effects = (SensorEffects(config['sensor_effects'], config['seed'] + 506)
+                        if effects is not None and feet_estimator is not None else None)
         next_camera = 0.0
         next_scan = 0.0
         scan = None
@@ -266,6 +274,19 @@ def run_simulator(config, initial_q, pipe, stop, release):
                         gripper_target = None
                     plant.advance(data, gripper_target)
                     grippers.send(plant.encoder_state(data))
+                if feet_estimator is not None and data.time >= next_feet:
+                    inertial = {'time': max(0., float(data.time - robot['timestep'])),
+                                'gyro': data.sensor('imu_gyro').data.tolist(),
+                                'acc': data.sensor('imu_acc').data.tolist()}
+                    if feet_effects is not None:
+                        inertial = feet_effects.imu(inertial)
+                    sample = feet_estimator.update(
+                        inertial['time'], data.sensordata[:29], data.sensordata[29:58],
+                        data.sensordata[58:87], data.sensor('imu_quat').data,
+                        inertial['gyro'], inertial['acc'])
+                    if sample is not None:
+                        feet_samples.append(sample)
+                    next_feet = float(data.time) + .02
                 mujoco.mj_step(model, data)
                 if config.get('navigation'):
                     sample = {
@@ -337,6 +358,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
                             'imu': {name: data.sensor('imu_' + name).data.tolist()
                                     for name in ('quat', 'gyro', 'acc')},
                             'torso_imu': navigation_imu.copy(),
+                            'feet_estimation': feet_samples.copy(),
                             'scan': scan,
                             'scan_time': scan_time,
                             'position': data.qpos[:3].tolist(),
@@ -378,6 +400,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
                         sensor_times = {}
                     next_telemetry = data.time + 0.02
                     navigation_imu.clear()
+                    feet_samples.clear()
             if viewer is not None and time.monotonic() >= next_viewer:
                 viewer.sync()
                 next_viewer = time.monotonic() + 1 / 30

@@ -2,6 +2,7 @@
 from collections import deque
 from pathlib import Path
 import copy
+import json
 import math
 import sys
 
@@ -17,9 +18,10 @@ from rclpy.time import Time
 from scipy.spatial.transform import Rotation
 from sensor_msgs.msg import LaserScan, PointCloud2
 from sensor_msgs_py.point_cloud2 import read_points, read_points_numpy
-from std_msgs.msg import Header
+from std_msgs.msg import Header, String
 from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformBroadcaster, TransformListener, StaticTransformBroadcaster, TransformException
+from g1_backend.feet_estimation import FeetFusion
 from g1_backend.slam_mapping import navigation_pose, pose_matrix, write_pcd
 
 
@@ -42,6 +44,12 @@ class SlamAdapter(Node):
     def __init__(self):
         super().__init__('g1_slam_adapter')
         self.backend = self.declare_parameter('backend', 'lidar3d').value
+        self.feet_enabled = self.declare_parameter('feet_estimation', False).value
+        self.feet_filter = FeetFusion()
+        if self.feet_enabled:
+            self.create_subscription(String, '/feet_estimation/state',
+                                     self.feet_sample, 100)
+        self.feet_status = self.create_publisher(String, '/feet_estimation/fusion_status', 10)
         self.output = Path(self.declare_parameter('output_dir', 'results/navigation/slam').value)
         self.output.mkdir(parents=True, exist_ok=True)
         self.buffer = Buffer()
@@ -106,6 +114,16 @@ class SlamAdapter(Node):
         base, pelvis = navigation_pose(sensor, mount, self.offset)
         full = copy.deepcopy(raw)
         full.header.frame_id, full.child_frame_id = 'odom', 'pelvis'
+        if self.feet_enabled:
+            before = self.feet_filter.used
+            base = self.feet_filter.update(timestamp, base,
+                                          [max(0., raw.pose.covariance[i]) for i in (0, 7)])
+            if self.feet_filter.used > before:
+                for i, axis in ((0, 0), (7, 1)):
+                    full.pose.covariance[i] = float(self.feet_filter.variance[axis])
+            self.feet_status.publish(String(data=json.dumps({
+                'time': timestamp, 'used': self.feet_filter.used,
+                'fallbacks': self.feet_filter.fallbacks})))
         estimated_pelvis = base @ pelvis
         full.pose.pose.position.x, full.pose.pose.position.y, full.pose.pose.position.z = map(float, estimated_pelvis[:3, 3])
         full.pose.pose.orientation = transform_message(estimated_pelvis, '', '', raw.header.stamp).transform.rotation
@@ -129,6 +147,12 @@ class SlamAdapter(Node):
         self.odom.publish(planar)
         self.previous = (timestamp, base)
         self.current_pose, self.latest_stamp = estimated_pelvis, raw.header.stamp
+
+    def feet_sample(self, message):
+        try:
+            self.feet_filter.add(json.loads(message.data))
+        except (ValueError, KeyError, TypeError):
+            self.get_logger().warning('Invalid feet estimation sample')
 
     @staticmethod
     def seconds(stamp):

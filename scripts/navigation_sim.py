@@ -25,6 +25,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--viewer', choices=['true', 'false'], default='true')
     parser.add_argument('--ideal', choices=['true', 'false'], default='false')
+    parser.add_argument('--feet-estimation', choices=['true', 'false'], default='false')
     parser.add_argument('--real-sensors', choices=['true', 'false'], default='false')
     parser.add_argument('--duration', type=float, default=3600.0)
     parser.add_argument('--dexterity', choices=['claw', 'hand'], default='hand')
@@ -40,6 +41,7 @@ if __name__ == '__main__':
         if args.ideal == 'true':
             parser.error('--real cannot be combined with --ideal')
         config['sensor_effects'] = yaml.safe_load((ROOT / 'configs/navigation/sensors_real.yaml').read_text())
+    config['navigation']['feet_estimation'] = args.feet_estimation == 'true'
     config['robot']['dexterity'] = args.dexterity
     config['robot']['initial_position'][:2] = [args.initial_x, args.initial_y]
     config['robot']['initial_yaw'] = args.initial_yaw

@@ -15,6 +15,7 @@ from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException
 from rclpy.qos import qos_profile_sensor_data
 from rosgraph_msgs.msg import Clock
+from std_msgs.msg import String
 from sensor_msgs.msg import CameraInfo, Image, Imu, JointState, LaserScan, PointCloud2, PointField
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 
@@ -41,6 +42,7 @@ class Bridge(Node):
         self.last_sim_time = 0.0
         if self.real_odom:
             self.create_subscription(Odometry, '/odom', self.estimated_odometry, 10)
+        self.feet = self.create_publisher(String, '/feet_estimation/state', 100)
         self.imu = self.create_publisher(Imu, '/imu/data', qos_profile_sensor_data)
         # Reliable delivery also matches FAST-LIO2's upstream IMU subscription.
         self.torso_imu = self.create_publisher(Imu, '/imu/torso', 100)
@@ -107,6 +109,8 @@ class Bridge(Node):
             self.last_sim_time = row['time']
             timestamp = stamp(row['time'])
             self.clock.publish(Clock(clock=timestamp))
+            for sample in row.get('feet_estimation', []):
+                self.feet.publish(String(data=json.dumps(sample)))
             for sample in row.get('torso_imu', []):
                 inertial = Imu()
                 inertial.header.stamp = stamp(sample['time'])

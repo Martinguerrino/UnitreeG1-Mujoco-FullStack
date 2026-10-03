@@ -40,6 +40,7 @@ while (($#)); do
       LAUNCH_ARGS+=("dexterity:=$value")
       shift
       ;;
+    --feet-estimation) LAUNCH_ARGS+=("feet_estimation:=true"); shift ;;
     --real-odom) LAUNCH_ARGS+=("real_odom:=true"); shift ;;
     --real) LAUNCH_ARGS+=("real_sensors:=true"); shift ;;
     --ideal) LAUNCH_ARGS+=("ideal:=true"); shift ;;

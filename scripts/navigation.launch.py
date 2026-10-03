@@ -34,6 +34,9 @@ def prepare(context):
     ideal = LaunchConfiguration('ideal').perform(context) == 'true'
     slam_backend = LaunchConfiguration('slam').perform(context)
     sensor_slam = slam_backend != 'slam_toolbox'
+    feet_estimation = LaunchConfiguration('feet_estimation').perform(context) == 'true'
+    if feet_estimation and not sensor_slam:
+        raise ValueError('--feet-estimation requires --slam lidar3d or --slam rgb-d')
     camera_fps = float(LaunchConfiguration('camera_fps').perform(context))
     if camera_fps == 0:
         camera_fps = 20.0 if slam_backend == 'rgb-d' else 10.0
@@ -251,6 +254,7 @@ def prepare(context):
              '--camera-fps', str(camera_fps),
              '--ideal', LaunchConfiguration('ideal'),
              '--real-sensors', LaunchConfiguration('real_sensors'),
+             '--feet-estimation', LaunchConfiguration('feet_estimation'),
              '--external-turn-assist', LaunchConfiguration('nav2'),
              '--initial-x', LaunchConfiguration('initial_x'),
              '--initial-y', LaunchConfiguration('initial_y'),
@@ -284,7 +288,8 @@ def prepare(context):
         estimator = ExecuteProcess(
             cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_slam_adapter.py'),
                  '--ros-args', '-p', 'use_sim_time:=true', '-p', 'backend:=' + slam_backend,
-                 '-p', 'output_dir:=' + str(slam_output)], output='screen',
+                 '-p', 'output_dir:=' + str(slam_output),
+                 '-p', 'feet_estimation:=' + str(feet_estimation).lower()], output='screen',
         )
         actions.append(estimator)
         if slam_backend == 'lidar3d':
@@ -492,6 +497,7 @@ def generate_launch_description():
         DeclareLaunchArgument('nav2', default_value='true'),
         DeclareLaunchArgument('dexterity', default_value='hand', choices=['hand', 'claw']),
         DeclareLaunchArgument('real_odom', default_value='false'),
+        DeclareLaunchArgument('feet_estimation', default_value='false'),
         DeclareLaunchArgument('real_sensors', default_value='false'),
         DeclareLaunchArgument('ideal', default_value='false'),
         DeclareLaunchArgument('sim_python', default_value=

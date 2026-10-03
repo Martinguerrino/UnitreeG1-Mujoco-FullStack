@@ -898,3 +898,59 @@ Regresión geométrica: tres mediciones equivocadas de una superficie a 2.25 m
 se sustituyeron por tres nuevas a 2.00 m, verificando que la malla final abandona
 la superficie anterior y queda a menos de 1 cm de la correcta. También se
 comprueba que renovar una vista conserva las demás zonas del mapa.
+# Estimación corporal por piernas
+
+Activación opcional para ambos SLAM 3D:
+
+```bash
+bash scripts/navigation.sh --slam lidar3d --real --feet-estimation
+bash scripts/navigation.sh --slam rgb-d --real --feet-estimation
+```
+
+El estimador procesa a 50 Hz las posiciones/velocidades articulares, torque
+del actuador y la IMU de pelvis. Calcula cinemática y Jacobianos de los pies
+en un estado privado del modelo, construido exclusivamente con esos sensores.
+No copia posición/velocidad global, contactos ni fuerzas perfectas de MuJoCo.
+Con `--real`, el acelerómetro y giroscopio de esta estimación reciben ruido y
+sesgo independientes de la IMU de FAST-LIO; encoders, torque y orientación del
+SDK conservan las características actuales del simulador.
+
+La carga vertical se infiere mediante un modelo cuasiestático de torque y
+gravedad. La confianza depende de carga, error del modelo, altura relativa
+de los pies y acuerdo entre sus velocidades. Usa histéresis para el apoyo y
+permite doble apoyo. La aceleración propaga velocidad, y los apoyos confiables
+la corrigen; estima lentamente sesgo de aceleración durante apoyo quieto.
+
+El adaptador de SLAM integra los incrementos de velocidad de los pies entre
+mediciones nativas y los combina conservadoramente con la posición XY nativa.
+Publica el resultado en `/odom` y `/odometry/slam_3d`, que alimentan Nav2 y
+RTAB-Map. Conserva orientación y altura nativas; FAST-LIO sigue siendo el
+estimador LiDAR-inercial original. No fusiona por segunda vez un quaternion
+IMU ni usa posición integrada de piernas como una medición absoluta independiente.
+La política de locomoción conserva sus entradas originales.
+
+Diagnóstico: `/feet_estimation/state` contiene velocidad, varianza, confianza,
+apoyos, carga inferida y posición relativa de pies; `/feet_estimation/fusion_status`
+contiene contadores `used` y `fallbacks`. Sin apoyo confiable, con intervalos
+mayores de 0.3 s, muestras de piernas separadas más de 0.06 s o discrepancias
+grandes, se utiliza nuevamente la odometría nativa. Este modo requiere
+`--slam lidar3d` o `--slam rgb-d` y es compatible con localización.
+
+Es una estimación inicial para marcha erguida: el torque dinámico, un pie
+balanceándose cerca del suelo o el deslizamiento simultáneo de ambos pies
+pueden confundirse con apoyo. No equivale a sensores plantares ni garantiza
+mayor precisión; conviene comparar recorridos con/sin la opción antes de
+usarla como referencia de desempeño.
+
+Para comprobar publicación, contribución a odometría y un avance breve en una
+sesión de simulación con `nav2:=false`:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+ROS_DOMAIN_ID=43 /usr/bin/python3 scripts/check_navigation_feet.py --drive \
+  --duration 30 --output results/navigation/feet_validation.json
+```
+
+La referencia perfecta se utiliza únicamente en este comprobador para medir
+error. El resultado comprueba que hay apoyos válidos, actualizaciones fusionadas
+y desplazamiento, no que la opción supere al SLAM nativo.

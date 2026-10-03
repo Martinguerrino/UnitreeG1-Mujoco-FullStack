@@ -146,6 +146,7 @@ class NavigationTransport(TurnAssist):
         self.socket.sendto(
             json.dumps({**{key: telemetry[key] for key in keys},
                         'torso_imu': telemetry.get('torso_imu', []),
+                        'feet_estimation': telemetry.get('feet_estimation', []),
                         **({'imu': telemetry['imu']} if 'imu' in telemetry else {})}).encode(), self.destination
         )
         sensors = telemetry.get('sensors')

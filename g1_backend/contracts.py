@@ -14,6 +14,8 @@ class RobotState:
     gyroscope: np.ndarray  # base frame, rad/s
     received_at: float  # monotonic host time
     mode_machine: int = 0
+    accelerometer: np.ndarray | None = None
+    tau_est: np.ndarray | None = None
 
 
 @dataclass(frozen=True)

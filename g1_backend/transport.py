@@ -49,6 +49,8 @@ class DdsRobot:
             np.array(message.imu_state.gyroscope),
             time.monotonic(),
             message.mode_machine,
+            np.array(message.imu_state.accelerometer),
+            np.array([m.tau_est for m in motors]),
         )
         with self.lock:
             self.state = state
