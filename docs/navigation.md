@@ -445,7 +445,7 @@ un trabajador separado, y limita la visualización/exportación a **100000 triá
 Se conservan hasta **400 imágenes clave admitidas**; al superar ese límite se
 retiran las más antiguas y se reconstruye el volumen. Por ello la malla está
 limitada a esas observaciones, mientras que `rtabmap.db` conserva el mapa completo.
-RTAB-Map admite observaciones quieto a 2 Hz, pero TSDF solo admite tres vistas
+RTAB-Map admite observaciones quieto a 2 Hz, y TSDF conserva las tres vistas más recientes
 casi idénticas (menos de 2 cm y 0.02 rad) para limitar su peso y consumo.
 
 `map_mesh.ply` guarda geometría y colores por vértice, sin texturas UV.
@@ -793,3 +793,108 @@ la malla y sus metadatos, publica directamente esa geometría en
 `/slam/map_mesh` y habilita **SLAM 3D mesh** en RViz. No sustituye la malla
 completa por una reconstrucción parcial de las imágenes de la sesión nueva.
 Los cambios del mapa durante mapping siguen reconstruyendo TSDF normalmente.
+
+## Sensores con condiciones aproximadas de hardware: `--real`
+
+Para construir un mapa nuevo con imperfecciones de sensores:
+
+```bash
+bash scripts/navigation.sh --slam rgb-d --real
+bash scripts/navigation.sh --slam lidar3d --real
+```
+
+`--real` activa `real_sensors:=true` y odometría de sensores. Es independiente
+de `--real-odom`, que selecciona el estimador sin añadir imperfecciones.
+No se combina con `--ideal`. El perfil está en
+`configs/navigation/sensors_real.yaml` y queda incluido en `config.yaml` de
+los resultados del simulador. Sin `--real` se conserva la generación anterior.
+
+El perfil usa hipótesis configurables, no una calibración de un dispositivo:
+LiDAR con ruido radial de 1 cm más 0.05 % de distancia, 2 % de pérdida de
+retornos y rango mínimo de 0.2 m; profundidad de 0.2–6 m con ruido
+`0.001 + 0.001*z²` m, cuantización de 1 mm, 1 % de píxeles inválidos y pérdidas
+adicionales en discontinuidades; RGB con ruido de 1.5 niveles y fluctuaciones
+de exposición. IMU de navegación con ruido por muestra y sesgo fijo por
+sesión en acelerómetro y giróscopo. Los ruidos usan semillas reproducibles.
+
+La cámara tiene entrega diferida de 35 ± 10 ms y el LiDAR de 20 ± 5 ms,
+en tiempo de simulación, además del coste real de generación y transporte.
+Se conservan las marcas de captura; no se falsifican timestamps ni se bloquea
+el paso de física para esperar sensores. La cola está acotada a ocho frames.
+La proyección Nav2 del LiDAR se calcula de la misma nube degradada que recibe
+SLAM. La IMU de la política de balance y la verdad de simulación no se alteran.
+
+El modelo aún conserva el patrón de rayos existente: no reproduce el patrón
+no repetitivo exacto del MID-360, reflectividad de materiales, propagación
+óptica, estéreo físico ni rolling shutter. Las cifras son parámetros de prueba;
+la precisión depende del entorno y del equipo. Referencias del fabricante:
+[Livox MID-360](https://www.livoxtech.com/mid-360) y
+[metodología RealSense de calidad de profundidad](https://www.realsenseai.com/wp-content/uploads/2019/11/RealSense_DepthQualityTesting.pdf).
+
+Pruebas cortas de `--real` (2026-10-03, robot quieto): FAST-LIO inicializó
+la IMU y RTAB-Map guardó cuatro nodos y una nube de 5 130 puntos;
+RGB-D mantuvo odometría y generó una malla TSDF. Ambos simuladores terminaron
+sin caídas ni watchdogs. Artefactos en `results/navigation/real_sensors_lidar_check`
+y `results/navigation/real_sensors_rgbd_check`. Estas pruebas verifican la
+integración; todavía no validan precisión ni recorridos prolongados con ruido.
+
+## Bloqueo LiDAR junto a paredes con `--real`
+
+El perfil específico `configs/navigation/nav2_lidar.yaml` se aplica cuando
+`--slam lidar3d` está seleccionado. La huella global de planificación conserva
+0.66 × 0.70 m, mientras que controlador local y monitor utilizan una envolvente
+coherente de 0.66 × 0.64 m. La anchura nominal de colisión medida en postura
+inicial es aproximadamente 0.55 m: la envolvente local mantiene 4.5 cm de margen
+por lado. Este ajuste distingue el espacio preferido para planificar del espacio
+que exige una parada inmediata; no elimina la comprobación de obstáculos.
+
+Antes, el monitor recibía la huella globalmente ampliada mediante el tópico
+`published_footprint`. Una pared dentro de ese margen producía tiempo de colisión
+cero y anulaba incluso órdenes para salir de la zona. El monitor LiDAR ahora usa
+puntos explícitos y conserva la predicción de colisión de 1 s, tres retornos
+mínimos, escaneos recientes y comprobación de la asistencia de giro. El umbral
+para alineación inicial de Pure Pursuit es 1 rad: los errores moderados pueden
+corregirse con un arco comprobado, sin exigir primero un giro junto a la pared.
+RGB-D mantiene su perfil anterior.
+
+Verificación del 2026-10-03:
+
+- `results/navigation/lidar_wall_collision_verified_retry/validation.json`:
+  nueve comprobaciones del monitor nativo aprobadas, incluyendo movimiento
+  paralelo a pared a 0.335 m, salida alejándose de ella y limitación del avance
+  hacia la pared, además de parada ante obstáculos, falta de escaneos y orden cero.
+- `results/navigation/lidar_wall_real_fixed_goal.json`: inicio dentro de inflación
+  (coste 51), 2 541 órdenes de movimiento y desplazamiento máximo de 1.164 m.
+  No confirmó éxito de NavigateToPose antes del límite; error final de posición
+  0.300 m. Esto acredita movimiento desde la proximidad, no llegada precisa.
+- El inicio más ajustado a 0.35 m dejó el monitor anterior anulando todas las
+  órdenes. Un primer ajuste parcial siguió fallando; la prueba siguiente de la
+  envolvente coherente se invalidó porque Nav2 no terminó su activación.
+  No se presenta ese caso como navegación completa aprobada.
+
+Si los retornos invaden la envolvente local, el monitor todavía debe detenerse.
+No está validado iniciar en contacto con la pared ni en un pasillo cuyo espacio
+impide girar. Para repetir sólo el monitor, usar un ROS_DOMAIN_ID distinto al de
+la simulación y `scripts/check_navigation_collision_pipeline.py --backend lidar3d
+--output-dir /ruta/nueva`; `--backend rgb-d` comprueba el perfil común anterior.
+
+## Renovación de mallas RGB-D con ruido
+
+Durante mapping, las vistas repetidas conservan ahora las tres observaciones
+más recientes, reemplazando las antiguas. Antes se aceptaban las primeras tres
+y se descartaban todas las siguientes, fijando los errores iniciales de profundidad.
+Retirar una observación obliga a reconstruir TSDF desde las vistas retenidas:
+las superficies antiguas dejan de aportar peso y pueden desaparecer al llegar
+mediciones mejores. Se conservan los otros puntos de vista y el límite global
+de frames. Las correcciones del grafo también siguen provocando reconstrucción.
+
+La actualización permanece limitada por `mesh_update_period` (5 s reales por
+defecto); no es instantánea ni supone reemplazar toda la geometría tras una sola
+medición. No se fuerza un piso plano usando la posición perfecta de simulación.
+Ruido persistente y errores de pose todavía pueden deformar las superficies.
+`map_mesh.json` identifica la política y los IDs de los frames usados.
+
+Regresión geométrica: tres mediciones equivocadas de una superficie a 2.25 m
+se sustituyeron por tres nuevas a 2.00 m, verificando que la malla final abandona
+la superficie anterior y queda a menos de 1 cm de la correcta. También se
+comprueba que renovar una vista conserva las demás zonas del mapa.

@@ -1,0 +1,27 @@
+# Heuristic stress profile, not a calibration of a particular physical unit.
+# Noise standard deviations are per output sample; delays use simulation seconds.
+lidar:
+  range_sigma_m: 0.01
+  range_sigma_per_m: 0.0005
+  dropout_probability: 0.02
+  min_range_m: 0.2
+  latency_s: 0.02
+  jitter_s: 0.005
+camera:
+  depth_min_m: 0.2
+  depth_max_m: 6.0
+  depth_sigma_m: 0.001
+  depth_sigma_per_m2: 0.001
+  depth_quantization_m: 0.001
+  depth_dropout_probability: 0.01
+  edge_dropout_probability: 0.2
+  depth_edge_m: 0.08
+  rgb_sigma: 1.5
+  exposure_sigma: 0.005
+  latency_s: 0.035
+  jitter_s: 0.01
+imu:
+  gyro_sigma_rad_s: 0.002
+  acc_sigma_m_s2: 0.03
+  gyro_bias_sigma_rad_s: 0.0005
+  acc_bias_sigma_m_s2: 0.015

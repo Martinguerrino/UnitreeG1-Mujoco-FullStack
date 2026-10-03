@@ -106,3 +106,20 @@ def same_view(first, second, distance=.02, angle=.02):
     delta = np.linalg.inv(first) @ second
     return (np.linalg.norm(delta[:3, 3]) < distance
             and Rotation.from_matrix(delta[:3, :3]).magnitude() < angle)
+
+
+def retain_recent_view(frames, poses, key, frame, max_frames, max_repeats=3):
+    """Refresh repeated views without accumulating unlimited stationary weight.
+
+    Eviction makes TSDFReconstructor rebuild, removing old surfaces rather than
+    merely integrating new observations on top of permanently weighted errors.
+    Other viewpoints remain available for the rest of the map.
+    """
+    camera_pose = poses[key] @ frame.local_transform
+    repeats = [old for old, previous in frames.items()
+               if old in poses and same_view(camera_pose, poses[old] @ previous.local_transform)]
+    for old in repeats[:max(0, len(repeats) - max_repeats + 1)]:
+        del frames[old]
+    frames[key] = frame
+    while len(frames) > max_frames:
+        frames.popitem(last=False)

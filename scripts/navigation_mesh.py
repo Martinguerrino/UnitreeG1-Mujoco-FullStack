@@ -18,7 +18,7 @@ from rtabmap_msgs.msg import MapData
 from rtabmap_msgs.srv import GetMap
 from std_msgs.msg import ColorRGBA, Header
 from visualization_msgs.msg import Marker
-from g1_backend.slam_tsdf import ImageDecoder, RGBDFrame, TSDFReconstructor, same_view, transform_matrix
+from g1_backend.slam_tsdf import ImageDecoder, RGBDFrame, TSDFReconstructor, retain_recent_view, transform_matrix
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -82,21 +82,13 @@ class MeshPublisher(Node):
                     or len(data.left_camera_info) != 1 or len(data.local_transform) != 1):
                 continue
             local = pose_matrix(data.local_transform[0])
-            camera_pose = poses[node.id] @ local
-            # Admit at most three repeated views: stationary integration is useful,
-            # but must not overwhelm observations from other viewpoints.
-            repeats = sum(same_view(camera_pose, poses[key] @ frame.local_transform)
-                          for key, frame in self.frames.items())
-            if repeats >= 3:
-                continue
             info = data.left_camera_info[0]
             if info.k[0] <= 0 or info.k[4] <= 0:
                 continue
-            self.frames[node.id] = RGBDFrame(
+            frame = RGBDFrame(
                 bytes(data.left_compressed), bytes(data.right_compressed),
                 (info.width, info.height, info.k[0], info.k[4], info.k[2], info.k[5]), local)
-            if len(self.frames) > self.max_frames:
-                self.frames.popitem(last=False)
+            retain_recent_view(self.frames, poses, node.id, frame, self.max_frames)
             changed = True
         if changed:
             self.version += 1
@@ -114,7 +106,9 @@ class MeshPublisher(Node):
                     'voxel_size': self.reconstructor.voxel_size,
                     'depth_max': self.reconstructor.depth_max,
                     'frames': len(self.reconstructor.poses), 'triangles': len(triangles),
-                    'rebuilds': self.reconstructor.rebuild_count, 'frame_id': header.frame_id}
+                    'rebuilds': self.reconstructor.rebuild_count, 'frame_id': header.frame_id,
+                    'view_refresh_policy': 'latest_three_per_view',
+                    'retained_frame_ids': list(self.reconstructor.poses)}
         temporary_metadata = self.output / 'map_mesh.tmp.json'
         temporary_metadata.write_text(json.dumps(metadata, indent=2) + '\n')
         temporary_metadata.replace(self.output / 'map_mesh.json')

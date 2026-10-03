@@ -4,6 +4,7 @@ import argparse
 import signal
 from pathlib import Path
 import sys
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from g1_backend.config import ROOT, load_config
@@ -24,6 +25,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--viewer', choices=['true', 'false'], default='true')
     parser.add_argument('--ideal', choices=['true', 'false'], default='false')
+    parser.add_argument('--real-sensors', choices=['true', 'false'], default='false')
     parser.add_argument('--duration', type=float, default=3600.0)
     parser.add_argument('--dexterity', choices=['claw', 'hand'], default='hand')
     parser.add_argument('--camera-fps', type=float, default=10.0)
@@ -34,6 +36,10 @@ if __name__ == '__main__':
     parser.add_argument('--scene', default='')
     args = parser.parse_args()
     config = load_config(ROOT / 'configs/experiments/navigation.yaml')
+    if args.real_sensors == 'true':
+        if args.ideal == 'true':
+            parser.error('--real cannot be combined with --ideal')
+        config['sensor_effects'] = yaml.safe_load((ROOT / 'configs/navigation/sensors_real.yaml').read_text())
     config['robot']['dexterity'] = args.dexterity
     config['robot']['initial_position'][:2] = [args.initial_x, args.initial_y]
     config['robot']['initial_yaw'] = args.initial_yaw

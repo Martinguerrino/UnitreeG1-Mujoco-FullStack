@@ -10,6 +10,7 @@ import traceback
 from pathlib import Path
 
 import numpy as np
+from .sensor_effects import SensorEffects, DelayedFrames
 
 
 class LatestMailbox:
@@ -85,6 +86,8 @@ def _run_sensor(kind, config, sources, backend, states, frames, stop, status):
             (path / 'scene.xml').write_text(sources[1])
             model = mujoco.MjModel.from_xml_path(str(path / 'scene.xml'))
         data = mujoco.MjData(model)
+        effects = (SensorEffects(config['sensor_effects'], config.get('seed', 0) + (101 if kind == 'camera' else 202))
+                   if config.get('sensor_effects') else None)
         spec = mujoco.mjtState.mjSTATE_INTEGRATION
         if kind == 'camera':
             camera = config['camera']
@@ -137,12 +140,14 @@ def _run_sensor(kind, config, sources, backend, states, frames, stop, status):
                 from .navigation import laser_scan, lidar_scan
                 lidar = config['navigation'].get('lidar', {})
                 if lidar.get('enabled'):
-                    points, result['scan'] = lidar_scan(model, data, lidar)
+                    points, result['scan'] = lidar_scan(model, data, lidar, effects)
                     result['sensors']['mid360_points'] = points
                 else:
                     result['scan'] = laser_scan(model, data)
+            if kind == 'camera' and effects is not None:
+                result['sensors'] = effects.camera(result['sensors'])
             frames.put(result)
-    except BaseException:
+    except BaseException:  # noqa: BLE001 - report child failures to the parent
         status.send({'error': traceback.format_exc()})
     finally:
         if renderer is not None:
@@ -152,6 +157,9 @@ def _run_sensor(kind, config, sources, backend, states, frames, stop, status):
 
 class SensorWorker:
     def __init__(self, kind, config, sources, state_size):
+        timing = config.get('sensor_effects', {}).get(kind, {})
+        self.delivery = DelayedFrames(timing.get('latency_s', 0), timing.get('jitter_s', 0),
+                                      config.get('seed', 0) + (303 if kind == 'camera' else 404))
         self.context = mp.get_context('spawn')
         self.states = LatestMailbox(self.context, state_size * 8 + 4096)
         camera = config['camera']
@@ -198,7 +206,7 @@ class SensorWorker:
     def submit(self, captured, state):
         return self.states.put((captured, state))
 
-    def receive(self):
+    def receive(self, sim_time=None):
         if self.status.poll():
             try:
                 message = self.status.recv()
@@ -208,7 +216,10 @@ class SensorWorker:
                 raise RuntimeError(message['error'])
         if not self.process.is_alive():
             raise RuntimeError(f'{self.process.name} exited ({self.process.exitcode})')
-        return self.frames.get()
+        frame = self.frames.get()
+        if sim_time is None or (self.delivery.latency == 0 and self.delivery.jitter == 0):
+            return frame
+        return self.delivery.receive(frame, sim_time)
 
     def close(self):
         if self.stop is not None:

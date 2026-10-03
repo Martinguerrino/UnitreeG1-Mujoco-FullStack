@@ -1,11 +1,12 @@
 """TSDF surface fusion and graph correction, using known RGB-D geometry."""
 from pathlib import Path
+from collections import OrderedDict
 
 import numpy as np
 import pytest
 
 pytest.importorskip('open3d')
-from g1_backend.slam_tsdf import ImageDecoder, RGBDFrame, TSDFReconstructor, same_view
+from g1_backend.slam_tsdf import ImageDecoder, RGBDFrame, TSDFReconstructor, same_view, retain_recent_view
 
 
 class ArrayDecoder:
@@ -92,3 +93,32 @@ def test_native_codec_decodes_rgb_and_millimeter_depth():
     np.testing.assert_allclose(decoded, 2.345)
     with pytest.raises(ValueError, match='decoding'):
         decoder.decode(b'invalid')
+
+
+def test_new_stationary_measurements_replace_bad_surface():
+    frames = OrderedDict()
+    poses = {key: np.eye(4) for key in range(1, 7)}
+    reconstruction = TSDFReconstructor(ArrayDecoder())
+    for key in (1, 2, 3):
+        bad = plane_frame()
+        bad.depth[:] = 2.25
+        retain_recent_view(frames, poses, key, bad, 20)
+    mesh, _, _ = reconstruction.update(frames, poses)
+    assert np.max(np.abs(np.asarray(mesh.vertices)[:, 2] - 2.25)) < .01
+    for key in (4, 5, 6):
+        retain_recent_view(frames, poses, key, plane_frame(), 20)
+        mesh, _, rebuilt = reconstruction.update(frames, poses)
+        assert rebuilt
+    assert list(frames) == [4, 5, 6]
+    assert np.max(np.abs(np.asarray(mesh.vertices)[:, 2] - 2)) < .01
+
+
+def test_refresh_preserves_other_viewpoints_and_global_frame_limit():
+    frames = OrderedDict()
+    poses = {key: np.eye(4) for key in range(1, 6)}
+    poses[1][0, 3] = 1
+    for key in range(1, 6):
+        retain_recent_view(frames, poses, key, plane_frame(), 20)
+    assert list(frames) == [1, 3, 4, 5]
+    retain_recent_view(frames, poses, 5, plane_frame(), 2)
+    assert len(frames) == 2

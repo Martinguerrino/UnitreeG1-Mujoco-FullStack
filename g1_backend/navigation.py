@@ -30,7 +30,7 @@ def laser_scan(model, data, count=360, maximum=20.0):
     return ranges
 
 
-def lidar_scan(model, data, config):
+def lidar_scan(model, data, config, effects=None):
     """Return a MID-360-like XYZ cloud and its horizontal Nav2 projection."""
     import mujoco
 
@@ -74,6 +74,8 @@ def lidar_scan(model, data, config):
     self_hit[hits] = model.body_rootid[model.geom_bodyid[geom_ids[hits]]] == root_id
     valid &= ~self_hit
     points = (local_directions[valid] * distances[valid, None]).astype(np.float32)
+    if effects is not None:
+        points = effects.lidar(points, config['max_range'])
     world_points = origin + points.astype(np.float64) @ rotation.T
     return points, project_scan(world_points, data.qpos[:3],
                                 yaw_from_quaternion(data.qpos[3:7]), config)

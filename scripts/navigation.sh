@@ -41,6 +41,7 @@ while (($#)); do
       shift
       ;;
     --real-odom) LAUNCH_ARGS+=("real_odom:=true"); shift ;;
+    --real) LAUNCH_ARGS+=("real_sensors:=true"); shift ;;
     --ideal) LAUNCH_ARGS+=("ideal:=true"); shift ;;
     slam:=*) SLAM_MODE="${1#slam:=}"; LAUNCH_ARGS+=("$1"); shift ;;
     *) LAUNCH_ARGS+=("$1"); shift ;;

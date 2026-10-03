@@ -39,7 +39,8 @@ def prepare(context):
         camera_fps = 20.0 if slam_backend == 'rgb-d' else 10.0
     if camera_fps <= 0:
         raise ValueError('camera_fps must be positive (or 0 for backend default)')
-    real_odom = LaunchConfiguration('real_odom').perform(context) == 'true' or sensor_slam
+    real_sensors = LaunchConfiguration('real_sensors').perform(context) == 'true'
+    real_odom = LaunchConfiguration('real_odom').perform(context) == 'true' or sensor_slam or real_sensors
     if real_odom:
         for dependency in ('cv2', 'scipy'):
             if importlib.util.find_spec(dependency) is None:
@@ -108,6 +109,9 @@ def prepare(context):
         params['collision_monitor']['ros__parameters']['base_frame_id'] = 'base_link'
     tuning = yaml.safe_load((ROOT / 'configs/navigation/nav2_tuning.yaml').read_text())
     merge_parameters(params, tuning['nav2'])
+    if slam_backend == 'lidar3d':
+        merge_parameters(params, yaml.safe_load(
+            (ROOT / 'configs/navigation/nav2_lidar.yaml').read_text())['nav2'])
     for name in ('local_costmap', 'global_costmap'):
         params[name][name]['ros__parameters'].pop('robot_radius', None)
     # Keep the resolved launch configuration for reproducibility.
@@ -246,6 +250,7 @@ def prepare(context):
              '--duration', LaunchConfiguration('duration'),
              '--camera-fps', str(camera_fps),
              '--ideal', LaunchConfiguration('ideal'),
+             '--real-sensors', LaunchConfiguration('real_sensors'),
              '--external-turn-assist', LaunchConfiguration('nav2'),
              '--initial-x', LaunchConfiguration('initial_x'),
              '--initial-y', LaunchConfiguration('initial_y'),
@@ -487,6 +492,7 @@ def generate_launch_description():
         DeclareLaunchArgument('nav2', default_value='true'),
         DeclareLaunchArgument('dexterity', default_value='hand', choices=['hand', 'claw']),
         DeclareLaunchArgument('real_odom', default_value='false'),
+        DeclareLaunchArgument('real_sensors', default_value='false'),
         DeclareLaunchArgument('ideal', default_value='false'),
         DeclareLaunchArgument('sim_python', default_value=
                               '/home/martin/miniforge3/envs/mujoco-unitree/bin/python'),

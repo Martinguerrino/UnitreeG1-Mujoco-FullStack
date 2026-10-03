@@ -23,12 +23,16 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir', type=Path, required=True)
+    parser.add_argument('--backend', choices=['lidar3d', 'rgb-d'], default='lidar3d')
     args = parser.parse_args()
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=False)
     defaults = yaml.safe_load(Path('/opt/ros/jazzy/share/nav2_bringup/params/nav2_params.yaml').read_text())
     tuning = yaml.safe_load((ROOT / 'configs/navigation/nav2_tuning.yaml').read_text())
     merge_parameters(defaults, tuning['nav2'])
+    if args.backend == 'lidar3d':
+        merge_parameters(defaults, yaml.safe_load(
+            (ROOT / 'configs/navigation/nav2_lidar.yaml').read_text())['nav2'])
     monitor = defaults['collision_monitor']['ros__parameters']
     monitor.update(use_sim_time=False, base_frame_id='base_link', enable_stamped_cmd_vel=False)
     config = output / 'monitor.yaml'
@@ -45,9 +49,9 @@ def main():
     static.sendTransform(transform)
     samples = {'output': [], 'assisted': []}
     node.create_subscription(Twist, '/cmd_vel', lambda msg: samples['output'].append(
-        (msg.linear.x, msg.angular.z)), 10)
+        (msg.linear.x, msg.angular.z, msg.linear.y)), 10)
     node.create_subscription(Twist, '/cmd_vel_assisted', lambda msg: samples['assisted'].append(
-        (msg.linear.x, msg.angular.z)), 10)
+        (msg.linear.x, msg.angular.z, msg.linear.y)), 10)
     processes, logs = [], []
     report = {}
     try:
@@ -71,7 +75,7 @@ def main():
             if not future.done() or not future.result().success:
                 raise RuntimeError('Cannot activate collision monitor')
 
-        def phase(linear, angular, obstacle=False, publish_scan=True, seconds=2.):
+        def phase(linear, angular, obstacle=False, publish_scan=True, seconds=2., wall=False, lateral=0.):
             samples['output'].clear()
             samples['assisted'].clear()
             start = time.monotonic()
@@ -82,6 +86,7 @@ def main():
                     stamp = node.get_clock().now().to_msg()
                     command = Twist()
                     command.linear.x, command.angular.z = linear, angular
+                    command.linear.y = lateral
                     velocity.publish(command)
                     if publish_scan:
                         scan = LaserScan()
@@ -92,6 +97,10 @@ def main():
                         ranges = [float('inf')] * 360
                         if obstacle:
                             ranges[170:191] = [.3] * 21
+                        if wall:
+                            for index in range(195, 346):
+                                sine = np.sin(-np.pi + index * 2 * np.pi / 360)
+                                ranges[index] = .335 / sine
                         scan.ranges = ranges
                         scan_pub.publish(scan)
                     footprint = PolygonStamped()
@@ -103,7 +112,7 @@ def main():
                 if time.monotonic() - start < .7:
                     samples['output'].clear()
                     samples['assisted'].clear()
-            return {key: np.asarray(value).reshape(-1, 2) for key, value in samples.items()}
+            return {key: np.asarray(value).reshape(-1, 3) for key, value in samples.items()}
 
         free = phase(.3, 0.)
         blocked = phase(.3, 0., obstacle=True)
@@ -120,6 +129,14 @@ def main():
             'zero_cancels_turn': bool(len(stopped['output']) and np.max(np.abs(stopped['output'])) < .001),
             'stale_scan_stops_motion': bool(len(stale['output']) and np.max(np.abs(stale['output'])) < .001),
         }
+        if args.backend == 'lidar3d':
+            parallel = phase(.2, 0., wall=True)
+            away = phase(0., 0., wall=True, lateral=-.1)
+            toward = phase(0., 0., wall=True, lateral=.1)
+            report.update(
+                wall_parallel_motion=bool(len(parallel['output']) and np.max(parallel['output'][:, 0]) > .15),
+                wall_away_motion=bool(len(away['output']) and np.min(away['output'][:, 2]) < -.08),
+                wall_toward_motion_limited=bool(len(toward['output']) and np.max(toward['output'][:, 2]) < .03))
         report['passed'] = all(report.values())
     finally:
         for process in processes:

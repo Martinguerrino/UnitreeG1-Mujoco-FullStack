@@ -227,6 +227,9 @@ def run_simulator(config, initial_q, pipe, stop, release):
         previous_contacts = set()
         next_telemetry = 0.0
         navigation_imu = []
+        from .sensor_effects import SensorEffects
+        effects = (SensorEffects(config['sensor_effects'], config['seed'] + 505)
+                   if config.get('sensor_effects') else None)
         next_camera = 0.0
         next_scan = 0.0
         scan = None
@@ -251,7 +254,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
                 stop.set()
                 break
             before = time.monotonic()
-            received_frames = {kind: worker.receive() for kind, worker in workers.items()}
+            received_frames = {kind: worker.receive(sim_time=float(data.time)) for kind, worker in workers.items()}
             with mutex:
                 if release.is_set():
                     data.eq_active[fixture] = 0
@@ -265,14 +268,15 @@ def run_simulator(config, initial_q, pipe, stop, release):
                     grippers.send(plant.encoder_state(data))
                 mujoco.mj_step(model, data)
                 if config.get('navigation'):
-                    navigation_imu.append({
+                    sample = {
                         # mj_step's sensors describe the beginning of this step.
                         # Preserve every physics sample (500 Hz): downsampling
                         # foot-impact accelerations aliases them into false drift.
                         'time': float(data.time - robot['timestep']),
                         **{name: data.sensor('secondary_imu_' + name).data.tolist()
                            for name in ('gyro', 'acc')},
-                    })
+                    }
+                    navigation_imu.append(effects.imu(sample) if effects is not None else sample)
                 # mj_step leaves Cartesian poses at the previous integration step.
                 if (data.time >= next_telemetry
                         or (config.get('navigation') and data.time >= next_scan)
