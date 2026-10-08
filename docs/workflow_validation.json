@@ -87,7 +87,7 @@
         "orientation_error": 0.008559322291304973,
         "falls": 0,
         "collisions": 0,
-        "results_dir": "/home/martin/UnitreeG1-Mujoco-FullStack/results/benchmarks/20260913T215448_33b976c1/trial_000/episodes/20260913T215448_89ea7560"
+        "results_dir": "results/benchmarks/20260913T215448_33b976c1/trial_000/episodes/20260913T215448_89ea7560"
       },
       {
         "case": "slow_forward",
@@ -98,7 +98,7 @@
         "orientation_error": 0.07277904843735344,
         "falls": 0,
         "collisions": 0,
-        "results_dir": "/home/martin/UnitreeG1-Mujoco-FullStack/results/benchmarks/20260913T215448_33b976c1/trial_001/episodes/20260913T215510_d2b80deb"
+        "results_dir": "results/benchmarks/20260913T215448_33b976c1/trial_001/episodes/20260913T215510_d2b80deb"
       },
       {
         "case": "offset_forward",
@@ -109,7 +109,7 @@
         "orientation_error": 0.017423180821349804,
         "falls": 0,
         "collisions": 0,
-        "results_dir": "/home/martin/UnitreeG1-Mujoco-FullStack/results/benchmarks/20260913T215448_33b976c1/trial_002/episodes/20260913T215530_29b740eb"
+        "results_dir": "results/benchmarks/20260913T215448_33b976c1/trial_002/episodes/20260913T215530_29b740eb"
       },
       {
         "case": "offset_forward",
@@ -120,7 +120,7 @@
         "orientation_error": 0.02176709542683769,
         "falls": 0,
         "collisions": 0,
-        "results_dir": "/home/martin/UnitreeG1-Mujoco-FullStack/results/benchmarks/20260913T215448_33b976c1/trial_003/episodes/20260913T215541_bed58800"
+        "results_dir": "results/benchmarks/20260913T215448_33b976c1/trial_003/episodes/20260913T215541_bed58800"
       },
       {
         "case": "faster_forward",
@@ -131,7 +131,7 @@
         "orientation_error": 0.026504517260638457,
         "falls": 0,
         "collisions": 0,
-        "results_dir": "/home/martin/UnitreeG1-Mujoco-FullStack/results/benchmarks/20260913T215448_33b976c1/trial_004/episodes/20260913T215552_4c5f5369"
+        "results_dir": "results/benchmarks/20260913T215448_33b976c1/trial_004/episodes/20260913T215552_4c5f5369"
       },
       {
         "case": "faster_forward",
@@ -142,7 +142,7 @@
         "orientation_error": 0.003004753829724871,
         "falls": 0,
         "collisions": 0,
-        "results_dir": "/home/martin/UnitreeG1-Mujoco-FullStack/results/benchmarks/20260913T215448_33b976c1/trial_005/episodes/20260913T215603_66514d6b"
+        "results_dir": "results/benchmarks/20260913T215448_33b976c1/trial_005/episodes/20260913T215603_66514d6b"
       }
     ]
   },
@@ -189,7 +189,7 @@
     "controller_peak_ram_bytes": 87375872
   },
   "timeout": {
-    "results_dir": "/home/martin/UnitreeG1-Mujoco-FullStack/results/20260913T215556_3504baaf",
+    "results_dir": "results/20260913T215556_3504baaf",
     "schema_version": 1,
     "status": "failed",
     "success": false,
@@ -234,7 +234,7 @@
     "controller_peak_ram_bytes": 93761536
   },
   "recording": {
-    "results_dir": "/home/martin/UnitreeG1-Mujoco-FullStack/results/20260913T215520_2e34b09d",
+    "results_dir": "results/20260913T215520_2e34b09d",
     "schema_version": 1,
     "status": "completed",
     "success": true,

@@ -1,0 +1,18 @@
+{
+  "architecture": "YOLO11n-seg",
+  "classes": {
+    "0": "table",
+    "1": "box",
+    "2": "cylinder",
+    "3": "sphere"
+  },
+  "checkpoint_sha256": "91f95ef8d4a9171eceef447c16ddbe7879f4285602645a8b5f53677059cc85fd",
+  "onnx_sha256": "4c007e7ad919af158361981533210f645b75e16bb56158012378a6f029981fb6",
+  "pretrained_sha256": "55ed65c56c91713d23e8402371c6c49a6fd84f257f7dce452e8d70e41dcbe152",
+  "samples": 240,
+  "epochs_requested": 35,
+  "seed": 73,
+  "ultralytics": "8.3.221",
+  "torch": "2.7.1+cpu",
+  "domain": "synthetic objects; no hardware validation"
+}

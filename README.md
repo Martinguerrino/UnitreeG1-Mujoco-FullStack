@@ -1,5 +1,40 @@
 # Unitree G1 — MuJoCo + ROS 2
 
+## Instalación completa
+
+El instalador está en **[`setup.sh`](setup.sh), en la raíz del repositorio**.
+Soporta Ubuntu 24.04 amd64. Instala ROS 2 Jazzy, MoveIt, Nav2, DDS, Dex1,
+SLAM 3D, percepción YOLO, herramientas de video y el experimento ACT/Okura.
+Requiere Internet y permisos sudo para los paquetes del sistema.
+
+```bash
+git clone https://github.com/Martinguerrino/UnitreeG1-Mujoco-FullStack.git
+cd UnitreeG1-Mujoco-FullStack
+bash setup.sh
+bash scripts/navigation.sh perception:=true
+```
+
+Sin un entorno activo, crea `.venv` dentro del proyecto. Para usar tu propio
+entorno Conda, elegí su nombre y ejecutá:
+
+```bash
+conda create -n mi-g1 python=3.12 pip -y
+conda activate mi-g1
+bash setup.sh --python "$CONDA_PREFIX/bin/python"
+```
+
+También acepta el Python de cualquier virtualenv 3.12. Guarda la selección en
+`.g1-runtime.json` (local, excluido de Git); después los lanzamientos no requieren
+activar Conda. `G1_PYTHON=/ruta/al/python` permite cambiarla temporalmente.
+
+El modelo YOLO entrenado está incluido en `assets/perception/`; el setup
+verifica su SHA-256 y lo prepara sin volver a entrenar.
+
+Opciones y comprobaciones: [guía de instalación](docs/setup.md).
+`bash setup.sh --dry-run` muestra los pasos; `bash setup.sh --check` verifica
+una instalación existente. Instalar los experimentos no cambia su estado de
+validación: el agarre ACT sigue siendo experimental.
+
 Integración inicial de [Nav2 + SLAM Toolbox](docs/navigation.md):
 `bash scripts/navigation.sh` abre MuJoCo y RViz para seleccionar destinos.
 La navegación publica además un MID-360 3D simulado y una D435i RGB-D en tópicos
@@ -111,25 +146,21 @@ el objeto; el traslado completo todavía no está validado.**
 
 ## Inicio rápido
 
-Requisitos del host: Ubuntu 24.04, ROS 2 Jazzy y Miniforge en
-`/home/martin/miniforge3`. La instalación razonada está en
+Requisitos del host: Ubuntu 24.04 amd64 y Python 3.12 en un entorno propio.
+`setup.sh` instala ROS 2 Jazzy y prepara las dependencias. La instalación razonada está en
 [`exp/01_instalacion.md`](exp/01_instalacion.md).
 
 ```bash
-./scripts/install_ros_dependencies.sh  # una vez; sudo pedirá tu contraseña
-source /home/martin/miniforge3/etc/profile.d/conda.sh
-conda activate mujoco-unitree
-./scripts/bootstrap.sh
-./scripts/build.sh
+bash setup.sh
+source scripts/activate.sh
 source install/setup.bash
 ros2 launch g1_bringup simulation.launch.py
 ```
 
-Para instalar, compilar, probar y ejecutar el smoke test de MoveIt de una sola
-vez también se puede usar:
+Para validar específicamente MoveIt después del setup:
 
 ```bash
-./scripts/setup_phase5.sh
+./scripts/smoke_moveit.sh
 ```
 
 Modo sin ventana (útil para CI):

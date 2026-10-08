@@ -60,7 +60,7 @@ de precisión absoluta por filtrar.
   IDs estables y publicación de colores/etiquetas/ejes.
 
 ```bash
-/home/martin/miniforge3/envs/mujoco-unitree/bin/python scripts/evaluate_perception.py
+"$G1_PYTHON" scripts/evaluate_perception.py
 ```
 
 Esto deja una herramienta para medir y localizar problemas del detector,

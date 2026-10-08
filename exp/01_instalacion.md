@@ -11,7 +11,7 @@ Hay dos administradores de dependencias porque resuelven problemas distintos:
 ## Activar Conda
 
 ```bash
-source /home/martin/miniforge3/etc/profile.d/conda.sh
+source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate mujoco-unitree
 ```
 

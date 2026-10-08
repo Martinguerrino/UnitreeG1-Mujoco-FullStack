@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+from itertools import pairwise
 
 import rclpy
 from geometry_msgs.msg import Twist
@@ -19,6 +20,8 @@ from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import LaserScan
 
 from navigation_bridge import Bridge
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from g1_backend.python_runtime import resolve_python
 
 
 def main():
@@ -63,7 +66,7 @@ def main():
     executor.add_node(observer)
     publisher = observer.create_publisher(Twist, '/cmd_vel', 10)
     process = subprocess.Popen([
-        str(Path('/home/martin/miniforge3/envs/mujoco-unitree/bin/python')),
+        resolve_python(),
         str(root / 'scripts/navigation_sim.py'), '--viewer', 'false',
         '--duration', str(args.duration),
     ])
@@ -92,7 +95,7 @@ def main():
         if args.turn_rate:
             unwrapped_yaw = sum(
                 math.atan2(math.sin(current - previous), math.cos(current - previous))
-                for previous, current in zip(yaws, yaws[1:])
+                for previous, current in pairwise(yaws)
             )
             assert abs(unwrapped_yaw) >= args.minimum_yaw, (
                 f'Angular command produced only {unwrapped_yaw:.3f} rad'

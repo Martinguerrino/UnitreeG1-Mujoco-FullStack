@@ -1,0 +1,21 @@
+# Simulation environment; ROS Python dependencies remain managed by APT.
+mujoco==3.3.6
+numpy>=2.0,<2.3
+scipy>=1.14,<2
+PyYAML>=6,<7
+lxml>=5.3,<7
+opencv-python-headless>=4.10,<4.13
+pytest>=8.3,<10
+ruff>=0.12,<1
+pre-commit>=4,<5
+# SDK2/ONNX and the optional YOLO training tools use these dependencies.
+setuptools>=75,<81
+wheel>=0.44,<1
+rich-click>=1.8,<2
+coloredlogs==15.0.1
+flatbuffers==25.9.23
+protobuf==6.33.0
+sympy>=1.13.3,<2
+requests>=2.32,<3
+tqdm>=4.66,<5
+psutil>=6,<8

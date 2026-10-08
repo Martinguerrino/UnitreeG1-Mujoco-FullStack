@@ -27,6 +27,10 @@ else
   echo "Usando mujoco_ros2_control instalado por APT."
 fi
 rosdep update
-rosdep install --from-paths src --ignore-src --rosdistro jazzy -y
+if [[ "${1:-}" == --check-only ]]; then
+  rosdep check --from-paths src --ignore-src --rosdistro jazzy
+else
+  rosdep install --from-paths src --ignore-src --rosdistro jazzy -y
+fi
 
 echo "Dependencias listas. Ejecuta: ./scripts/build.sh"

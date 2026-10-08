@@ -43,7 +43,7 @@ intérprete auditado. No se necesita instalar Isaac Lab ni entrenar políticas.
 
 ## Evidencia inicial
 
-`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 /home/martin/miniforge3/envs/mujoco-unitree/bin/python -m pytest -q tests`:
+`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$G1_PYTHON" -m pytest -q tests`:
 **18 passed in 17.56s**. Esto valida contratos, carga e inferencia opcional;
 no equivale a un nuevo ensayo ROS/MoveIt ni a locomoción o agarre físico.
 El único archivo no versionado al comenzar era `exp/plan.md`.

@@ -158,7 +158,7 @@ modelo aprendido y la acumulación de vistas consultar [YOLO](perception_yolo.md
 ## Verificación
 
 ```bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 /home/martin/miniforge3/envs/mujoco-unitree/bin/python \
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$G1_PYTHON" \
   -m pytest -q tests/test_perception.py tests/test_perception_tracking.py tests/test_perception_evaluation.py
 
 source /opt/ros/jazzy/setup.bash
@@ -182,7 +182,7 @@ esos errores no representan precisión esperable en hardware o escenas generales
 Para repetir esa prueba sin ROS, usando Mesa/EGL por software:
 
 ```bash
-/home/martin/miniforge3/envs/mujoco-unitree/bin/python scripts/check_perception_render.py
+"$G1_PYTHON" scripts/check_perception_render.py
 ```
 
 Guarda imágenes y calibración en `results/perception/render_rgbd.npz` y las
@@ -192,7 +192,7 @@ real del objeto sólo se usa en ese comprobador para evaluar el error.
 ## Evaluación de precisión en Maxwell
 
 ```bash
-/home/martin/miniforge3/envs/mujoco-unitree/bin/python scripts/evaluate_perception.py --backend geometry
+"$G1_PYTHON" scripts/evaluate_perception.py --backend geometry
 ```
 
 Carga el escenario real de navegación y el G1 con su cámara D435i montada,

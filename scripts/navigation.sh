@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT_DIR/scripts/python_env.sh"
 LAUNCH_ARGS=()
 SLAM_MODE=slam_toolbox
 while (($#)); do

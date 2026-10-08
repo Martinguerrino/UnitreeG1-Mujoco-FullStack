@@ -28,16 +28,16 @@ bash scripts/setup_perception_yolo.sh
 ```
 
 El script instala versiones fijadas de las dependencias en
-`artifacts/perception/python`, genera 240 imágenes sintéticas con máscaras y
-ajusta YOLO11n-seg durante hasta 35 épocas sobre CPU. La primera preparación
-descarga el checkpoint oficial; entrenamiento e inferencia se ejecutan
-localmente. Requiere el entorno `mujoco-unitree` existente con PyTorch CPU y
-Torchvision. No modifica ese entorno ni los paquetes de ROS. La preparación
-puede tardar varios minutos; los resultados se guardan en
+`artifacts/perception/python` y prepara el ONNX entrenado incluido en
+`assets/perception/`, verificando su SHA-256. Usa el Python configurado por
+`setup.sh`; no requiere entrenar ni cargar PyTorch para inferencia.
+Para volver a generar 240 imágenes sintéticas y entrenar 35 épocas sobre CPU,
+usar `--train`; esa opción instala PyTorch/Torchvision en el entorno elegido
+y descarga el checkpoint inicial oficial. Los resultados se guardan en
 `artifacts/perception/training/synthetic`.
 
 ```bash
-bash scripts/setup_perception_yolo.sh --reuse-dataset --epochs 35
+bash scripts/setup_perception_yolo.sh --train --reuse-dataset --epochs 35
 ```
 
 Las imágenes se dividen en entrenamiento y validación, con semilla reproducible.
@@ -141,10 +141,10 @@ usar una pose, especialmente si CPU, render o SLAM están sobrecargados.
 ## Evaluar
 
 ```bash
-/home/martin/miniforge3/envs/mujoco-unitree/bin/python scripts/evaluate_perception.py \
+"$G1_PYTHON" scripts/evaluate_perception.py \
   --backend yolo --output results/perception/maxwell_yolo_evaluation
 
-/home/martin/miniforge3/envs/mujoco-unitree/bin/python scripts/evaluate_perception.py \
+"$G1_PYTHON" scripts/evaluate_perception.py \
   --backend geometry --output results/perception/maxwell_geometry_comparison
 ```
 

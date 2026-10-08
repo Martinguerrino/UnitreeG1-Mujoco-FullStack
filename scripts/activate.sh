@@ -1,16 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONDA_SH="/home/martin/miniforge3/etc/profile.d/conda.sh"
-if [[ ! -f "${CONDA_SH}" ]]; then
-  echo "No se encontró Miniforge en /home/martin/miniforge3" >&2
-  return 1 2>/dev/null || exit 1
-fi
-
-# shellcheck disable=SC1090
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT_DIR/scripts/python_env.sh"
+export PATH="$(dirname "$G1_PYTHON"):$PATH"
 set +u
-source "${CONDA_SH}"
-conda activate mujoco-unitree
 
 # VS Code installed as a Snap exports GTK paths from Ubuntu Core. Native ROS
 # GUI programs can then mix Snap's libc with the host libraries and abort. Some
@@ -25,10 +19,10 @@ if [[ -f /opt/ros/jazzy/setup.bash ]]; then
   source /opt/ros/jazzy/setup.bash
 fi
 
-if [[ -f install/setup.bash ]]; then
+if [[ -f "$ROOT_DIR/install/setup.bash" ]]; then
   # shellcheck disable=SC1091
-  source install/setup.bash
+  source "$ROOT_DIR/install/setup.bash"
 fi
 set -u
 
-echo "Entorno mujoco-unitree activo. Python: $(command -v python)"
+echo "Python del proyecto: $G1_PYTHON"

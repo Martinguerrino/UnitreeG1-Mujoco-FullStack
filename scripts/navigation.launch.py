@@ -26,6 +26,7 @@ from launch.substitutions import Command, FindExecutable, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from g1_backend.navigation_control import merge_parameters
+from g1_backend.python_runtime import resolve_python
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -547,7 +548,6 @@ def generate_launch_description():
         DeclareLaunchArgument('feet_estimation', default_value='false'),
         DeclareLaunchArgument('real_sensors', default_value='false'),
         DeclareLaunchArgument('ideal', default_value='false'),
-        DeclareLaunchArgument('sim_python', default_value=
-                              '/home/martin/miniforge3/envs/mujoco-unitree/bin/python'),
+        DeclareLaunchArgument('sim_python', default_value=resolve_python()),
         OpaqueFunction(function=prepare),
     ])

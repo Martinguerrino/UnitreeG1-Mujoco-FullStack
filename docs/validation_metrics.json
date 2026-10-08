@@ -1,7 +1,7 @@
 {
   "trials": [
     {
-      "results_dir": "/home/martin/UnitreeG1-Mujoco-FullStack/results/20260912T232036_0627f33c",
+      "results_dir": "results/20260912T232036_0627f33c",
       "status": "failed",
       "success": false,
       "falls": 0,
@@ -35,7 +35,7 @@
       "controller_peak_ram_bytes": 85413888
     },
     {
-      "results_dir": "/home/martin/UnitreeG1-Mujoco-FullStack/results/20260912T232056_13ab360e",
+      "results_dir": "results/20260912T232056_13ab360e",
       "status": "completed",
       "success": true,
       "falls": 0,
@@ -68,7 +68,7 @@
       "controller_peak_ram_bytes": 85102592
     },
     {
-      "results_dir": "/home/martin/UnitreeG1-Mujoco-FullStack/results/20260912T232107_5bc91590",
+      "results_dir": "results/20260912T232107_5bc91590",
       "status": "completed",
       "success": true,
       "falls": 0,

@@ -17,6 +17,10 @@ hashes de esos assets y de los controladores consultados se fijan en
 
 ## Dependencias de SLAM descargadas
 
+El modelo YOLO de distribución en `assets/perception/` deriva de Ultralytics
+YOLO11n-seg y se redistribuye bajo AGPL-3.0, con su licencia completa y
+procedimiento de entrenamiento en el repositorio. Ver `assets/perception/README.md`.
+
 `bash scripts/install_navigation_slam.sh` descarga dentro de `artifacts/slam`
 (excluido de Git):
 

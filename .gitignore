@@ -15,3 +15,9 @@ __pycache__/
 artifacts/
 results/
 videos/
+.venv/
+.g1-runtime.json
+.agents/
+.codex/
+.aws/
+MUJOCO_LOG.TXT

@@ -76,6 +76,6 @@ La batería geométrica histórica se conserva en
 `results/perception/maxwell_evaluation/evaluation.json`.
 
 ```bash
-/home/martin/miniforge3/envs/mujoco-unitree/bin/python scripts/evaluate_perception.py \
+"$G1_PYTHON" scripts/evaluate_perception.py \
   --backend yolo --output results/perception/maxwell_yolo_evaluation
 ```
