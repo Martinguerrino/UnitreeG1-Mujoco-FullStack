@@ -5,6 +5,26 @@ g1_perception:
     processing_frame: base_link
     # Pick currently expresses its arm goals relative to pelvis.
     target_frame: pelvis
+    segmentation_backend: yolo
+    yolo.model: artifacts/perception/g1_objects_yolo11n_seg.onnx
+    yolo.confidence: 0.3
+    yolo.iou: 0.5
+    yolo.threads: 2
+    refinement.geometric_support: true
+    refinement.min_mask_pixels: 12
+    refinement.min_points: 8
+    refinement.erosion_pixels: 1
+    refinement.min_valid_fraction: 0.35
+    refinement.neighbor_radius: 0.025
+    refinement.support_margin: 0.025
+    multiview.enabled: true
+    multiview.max_views: 6
+    multiview.max_points: 15000
+    multiview.max_age: 4.0
+    multiview.voxel_size: 0.004
+    multiview.min_translation: 0.03
+    multiview.min_rotation_deg: 8.0
+    multiview.motion_reset: 0.08
     # Fixed frame: robot motion must not become apparent object motion.
     tracking_frame: odom
     tracking.match_distance: 0.18

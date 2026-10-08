@@ -64,7 +64,7 @@ class TurnAssist:
             target = direction * cfg.get('speed', 0.3) * magnitude
             if not self._sector_clear(
                 telemetry.get('scan'), target > 0, cfg.get('obstacle_clearance', 0.8)
-            ):
+            ) or not self._swept_footprint_clear(telemetry.get('scan'), target > 0):
                 target = 0.0
                 self.assist_linear = 0.0
         else:
@@ -100,3 +100,24 @@ class TurnAssist:
         else:
             self.assist_angular = 0.0
         return assisted
+
+    def _swept_footprint_clear(self, scan, forward):
+        """Check diagonal obstacles along the full width of a translation pulse."""
+        cfg = self.turn_assist
+        if 'robot_half_width' not in cfg:
+            return True
+        if not scan:
+            return False
+        margin = cfg.get('turn_obstacle_margin', 0.1)
+        width = cfg['robot_half_width'] + margin
+        length = cfg['robot_half_length'] + margin
+        reach = max(length, cfg.get('obstacle_clearance', 0.5))
+        lower, upper = (-length, reach) if forward else (-reach, length)
+        for index, distance in enumerate(scan):
+            if distance is None or not math.isfinite(distance):
+                continue
+            angle = -math.pi + 2 * math.pi * index / len(scan)
+            x, y = distance * math.cos(angle), distance * math.sin(angle)
+            if lower <= x <= upper and abs(y) <= width:
+                return False
+        return True

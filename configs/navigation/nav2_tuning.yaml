@@ -63,3 +63,7 @@ turn_assist:
   max_forward_command: 0.05
   angular_linear_ratio: 0.7
   obstacle_clearance: 0.5
+  # Match the padded Nav2 footprint, including diagonal obstacles during pulses.
+  robot_half_length: 0.33
+  robot_half_width: 0.35
+  turn_obstacle_margin: 0.10

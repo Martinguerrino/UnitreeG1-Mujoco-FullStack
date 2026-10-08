@@ -15,6 +15,13 @@ def transform_item(item, transform):
     result['center'] = transform_points([item['center']], transform)[0].tolist()
     rotation = transform[:3, :3] @ Rotation.from_quat(item['orientation_xyzw']).as_matrix()
     result['orientation_xyzw'] = Rotation.from_matrix(rotation).as_quat().tolist()
+    if '_points' in item:
+        result['_points'] = transform_points(item['_points'], transform)
+    if '_support_center' in item:
+        result['_support_center'] = transform_points([item['_support_center']], transform)[
+            0
+        ].tolist()
+        result['_support_normal'] = (transform[:3, :3] @ item['_support_normal']).tolist()
     if 'raw_pose' in item:
         result['raw_pose'] = transform_item(item['raw_pose'], transform)
     if 'objects' in item:
@@ -79,7 +86,11 @@ class Tracker:
         candidates = [
             track
             for track in self.tracks.values()
-            if track['item']['kind'] == kind and track['parent'] == parent
+            if (
+                track['item']['kind'] == kind
+                or (kind == 'object' and track['item']['kind'] != 'table_surface')
+            )
+            and track['parent'] == parent
         ]
         matches = {}
         if candidates and observations:
@@ -87,12 +98,17 @@ class Tracker:
             for i, track in enumerate(candidates):
                 previous = track['item']
                 for j, measured in enumerate(observations):
+                    if previous['kind'] != measured['kind'] or (
+                        kind != 'table_surface'
+                        and previous.get('semantic_class') != measured.get('semantic_class')
+                    ):
+                        continue
                     distance = np.linalg.norm(np.array(previous['center']) - measured['center'])
                     size_delta = np.max(
                         np.abs(np.array(previous['dimensions']) - measured['dimensions'])
                     )
                     # Visible tabletop extents change strongly with viewpoint.
-                    gate = self.settings.dimension_gate if kind == 'box_candidate' else np.inf
+                    gate = self.settings.dimension_gate if kind != 'table_surface' else np.inf
                     distance_gate = self.settings.match_distance
                     compatible_plane = True
                     if kind == 'table_surface':
@@ -158,9 +174,11 @@ class Tracker:
                 item['orientation_xyzw'] = Slerp([0, 1], rotations)(alpha).as_quat().tolist()
             track['hits'] += 1
             track['last_seen'] = stamp
-            track['item'] = deepcopy(item)
+            track['item'] = {
+                key: deepcopy(value) for key, value in item.items() if not key.startswith('_')
+            }
             item.update(
-                id=f'{"table" if kind == "table_surface" else "box"}_{track["id"]}',
+                id=f'{"table" if kind == "table_surface" else item.get("semantic_class", "box")}_{track["id"]}',
                 track_id=track['id'],
                 hits=track['hits'],
                 confirmed=track['hits'] >= self.settings.confirmation_hits,
@@ -179,7 +197,5 @@ class Tracker:
         self.expire(stamp)
         tracked = self._group(tables, stamp, 'table_surface')
         for table, measured in zip(tracked, tables, strict=True):
-            table['objects'] = self._group(
-                measured['objects'], stamp, 'box_candidate', table['id']
-            )
+            table['objects'] = self._group(measured['objects'], stamp, 'object', table['id'])
         return tracked

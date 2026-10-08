@@ -35,6 +35,16 @@ def prepare(context):
     perception = LaunchConfiguration('perception').perform(context) == 'true'
     if ideal and perception:
         raise ValueError('perception requires RGB-D sensors; remove --ideal')
+    if perception:
+        perception_params = yaml.safe_load((ROOT / 'configs/perception.yaml').read_text())[
+            'g1_perception']['ros__parameters']
+        if perception_params.get('segmentation_backend', 'yolo') == 'yolo':
+            checkpoint = Path(perception_params['yolo.model']).expanduser()
+            if not checkpoint.is_absolute():
+                checkpoint = ROOT / checkpoint
+            if not checkpoint.is_file():
+                raise ValueError('YOLO segmentation model missing. '
+                                 'Run bash scripts/setup_perception_yolo.sh first.')
     slam_backend = LaunchConfiguration('slam').perform(context)
     sensor_slam = slam_backend != 'slam_toolbox'
     feet_estimation = LaunchConfiguration('feet_estimation').perform(context) == 'true'
@@ -115,6 +125,8 @@ def prepare(context):
         params['collision_monitor']['ros__parameters']['base_frame_id'] = 'base_link'
     tuning = yaml.safe_load((ROOT / 'configs/navigation/nav2_tuning.yaml').read_text())
     merge_parameters(params, tuning['nav2'])
+    params['bt_navigator']['ros__parameters']['default_nav_to_pose_bt_xml'] = str(
+        ROOT / 'configs/navigation/navigate_to_pose_recovery.xml')
     if slam_backend == 'lidar3d':
         merge_parameters(params, yaml.safe_load(
             (ROOT / 'configs/navigation/nav2_lidar.yaml').read_text())['nav2'])
@@ -215,6 +227,13 @@ def prepare(context):
             'Enabled': True, 'Value': True,
             'Topic': {'Value': '/perception/markers', 'Depth': 5,
                       'Reliability Policy': 'Reliable',
+                      'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
+        })
+        displays.append({
+            'Class': 'rviz_default_plugins/Image', 'Name': 'YOLO segmentation',
+            'Enabled': True, 'Value': True,
+            'Topic': {'Value': '/perception/segmentation/image', 'Depth': 2,
+                      'Reliability Policy': 'Best Effort',
                       'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
         })
     if sensor_slam:
@@ -481,11 +500,17 @@ def prepare(context):
         else:
             actions.append(TimerAction(period=8.0, actions=[nav2]))
     if LaunchConfiguration('rviz').perform(context) == 'true':
-        actions.append(TimerAction(period=8.0, actions=[
+        # Avoid compiling RViz shaders at the same time as Nav2 activates.
+        # Software rendering isolates RViz from Mesa/DRI3 failures on XWayland;
+        # MuJoCo and the RGB-D renderer retain their GPU configuration.
+        rviz_env = {}
+        if LaunchConfiguration('rviz_software_rendering').perform(context) == 'true':
+            rviz_env = {'LIBGL_ALWAYS_SOFTWARE': '1', 'LP_NUM_THREADS': '2'}
+        actions.append(TimerAction(period=20.0, actions=[
             Node(package='rviz2', executable='rviz2',
                  arguments=['-d', str(nav / 'rviz/nav2_default_view.rviz') if ideal
                             else str(rviz_path)],
-                 parameters=[{'use_sim_time': True}])
+                 parameters=[{'use_sim_time': True}], additional_env=rviz_env)
         ]))
     return actions
 
@@ -511,6 +536,9 @@ def generate_launch_description():
         DeclareLaunchArgument('duration', default_value='3600.0'),
         DeclareLaunchArgument('camera_fps', default_value='0'),
         DeclareLaunchArgument('rviz', default_value='true'),
+        DeclareLaunchArgument('rviz_software_rendering', default_value='false',
+                              choices=['true', 'false'],
+                              description='Use Mesa software rendering only for RViz'),
         DeclareLaunchArgument('nav2', default_value='true'),
         DeclareLaunchArgument('perception', default_value='false',
                               description='Detect table surfaces and box candidates from RGB-D'),

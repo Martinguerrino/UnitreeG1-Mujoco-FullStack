@@ -133,7 +133,7 @@ def pose(center, axes, output_transform):
     }
 
 
-def detect(points, colors, settings=None, output_transform=None):
+def detect(points, colors, settings=None, output_transform=None, *, detect_objects=True):
     """Detect support surfaces and object bounds in a gravity-aligned frame.
 
     The input frame's Z must point up, with z=0 at floor height. Results may
@@ -215,6 +215,9 @@ def detect(points, colors, settings=None, output_transform=None):
                 thickness_known=False,
                 objects=[],
             )
+            if not detect_objects:
+                tables.append(table)
+                continue
             inside = np.all(
                 local[:, :2] @ hull.equations[:, :2].T + hull.equations[:, 2] <= s.plane_distance,
                 axis=1,

@@ -67,6 +67,11 @@ bash scripts/navigation.sh
 ```
 
 Abre MuJoCo y RViz. Esperar que termine el calentamiento y aparezca el mapa.
+RViz se abre a los 20 segundos para no coincidir con la activación de Nav2.
+Por defecto usa aceleración gráfica GPU. Si aparecen errores Mesa/DRI3 en
+XWayland, añadir `rviz_software_rendering:=true` para usar renderizado por
+software con dos hilos únicamente en RViz; MuJoCo y la cámara mantienen su
+configuración GPU.
 Usar **Nav2 Goal** en RViz para indicar un punto y su orientación; empezar con
 destinos cercanos dentro de la zona ya observada. El panel Navigation2 permite
 cancelar una meta. La exploración automática no está implementada. El mapa se
@@ -87,6 +92,12 @@ La ayuda de giro de Nav2 se aplica antes del monitor de colisiones:
 `cmd_vel_smoothed → cmd_vel_assisted → collision_monitor → cmd_vel`.
 El backend recibe la orden comprobada sin añadir movimiento. Los pulsos tienen
 un máximo de 0.30 m/s, período de 1.5 s y requieren 0.5 m libres según LiDAR.
+Además se comprueba el rectángulo barrido por el ancho de la huella acolchada
+(0.66 × 0.70 m), con margen adicional de 0.10 m, para incluir obstáculos
+diagonales que quedan fuera de los conos frontal y trasero.
+La recuperación de metas individuales intenta retroceder 0.30 m a 0.10 m/s
+antes de girar; el retroceso y el giro conservan las comprobaciones de colisión
+de Nav2. Si no hay espacio seguro, pueden seguir siendo rechazados.
 La ganancia angular es 4.0 al alinear y 1.5 durante seguimiento, limitada a
 1.0 rad/s con rampa de 2.0 rad/s². La alineación inicial termina bajo 0.6 rad.
 Una orden cero cancela el pulso. Sin comandos recientes (0.25 s reales) o

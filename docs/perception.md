@@ -1,6 +1,12 @@
-# Percepción geométrica de mesa y caja con RGB-D
+# Percepción RGB-D de mesa y objetos
 
-El nodo `scripts/perception_rgbd.py` usa exclusivamente imágenes RGB-D,
+El modo predeterminado ahora usa **YOLO11n-seg**, refinamiento RGB-D y
+acumulación de vistas. Preparación, clases, máscaras, indicadores de calidad
+y evaluación están en [segmentación YOLO](perception_yolo.md).
+Los detalles geométricos y la validación histórica de abajo describen el
+backend de referencia `segmentation_backend:=geometry`.
+
+Durante inferencia, el nodo `scripts/perception_rgbd.py` usa exclusivamente imágenes RGB-D,
 calibración y TF. No recibe posiciones, nombres ni geometrías de objetos del
 simulador. Publica percepción; no mueve brazos ni pinzas y no modifica la
 Planning Scene de MoveIt.
@@ -44,6 +50,8 @@ sudo apt install python3-numpy python3-scipy ros-jazzy-message-filters \
 
 ## Procesamiento
 
+Procesamiento del backend geométrico de referencia:
+
 1. Sincroniza RGB y profundidad con tolerancia de 20 ms. Usa únicamente el par
    más reciente, con antigüedad máxima de 0.5 s. Procesa cada 0.5 s.
 2. Reconstruye puntos ópticos con `X=(u-cx)*Z/fx`, `Y=(v-cy)*Z/fy` y `Z=depth`.
@@ -84,6 +92,8 @@ ajustarse a distancia, resolución y ruido del sensor.
 | `/perception/detections` | `std_msgs/String` | JSON con estado, frame, tiempo de captura, mesas y cajas, dimensiones y calidad geométrica |
 | `/perception/table_pose` | `geometry_msgs/PoseStamped` | Centro de la primera superficie detectada y orientación |
 | `/perception/box_poses` | `geometry_msgs/PoseArray` | Centros y orientaciones de todas las cajas candidatas |
+| `/perception/object_poses` | `geometry_msgs/PoseArray` | Todas las categorías de objetos detectadas por YOLO |
+| `/perception/segmentation/image` | `sensor_msgs/Image` | RGB con máscaras y categorías de YOLO |
 | `/perception/markers` | `visualization_msgs/MarkerArray` | Volúmenes orientados para RViz |
 
 Para inspeccionar las estimaciones:
@@ -125,6 +135,9 @@ solos. `table_pose` sólo publica detecciones válidas; un consumidor debe compr
 su timestamp y el estado del JSON antes de reutilizar la última pose.
 
 ## Límites
+
+Estos límites de clasificación describen el backend geométrico. Para el
+modelo aprendido y la acumulación de vistas consultar [YOLO](perception_yolo.md).
 
 - Detecta **superficies compatibles con mesas y candidatos geométricos a cajas**,
   no reconocimiento semántico general. Un estante o un objeto rectangular puede
@@ -179,7 +192,7 @@ real del objeto sólo se usa en ese comprobador para evaluar el error.
 ## Evaluación de precisión en Maxwell
 
 ```bash
-/home/martin/miniforge3/envs/mujoco-unitree/bin/python scripts/evaluate_perception.py
+/home/martin/miniforge3/envs/mujoco-unitree/bin/python scripts/evaluate_perception.py --backend geometry
 ```
 
 Carga el escenario real de navegación y el G1 con su cámara D435i montada,

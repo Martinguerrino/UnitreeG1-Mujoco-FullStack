@@ -1,0 +1,19 @@
+# Install into artifacts/perception/python using scripts/setup_perception_yolo.sh.
+# PyTorch CPU and torchvision are supplied by the existing mujoco-unitree environment.
+ultralytics==8.3.221
+ultralytics-thop==2.0.18
+# Training, export and ROS inference dependencies isolated from ROS site-packages.
+matplotlib==3.10.7
+contourpy==1.3.3
+cycler==0.12.1
+fonttools==4.60.1
+kiwisolver==1.4.9
+pyparsing==3.2.5
+polars==1.35.2
+polars-runtime-32==1.35.2
+py-cpuinfo==9.0.0
+onnx==1.19.1
+onnxruntime==1.23.2
+ml-dtypes==0.5.3
+flatbuffers==25.9.23
+protobuf==6.33.0

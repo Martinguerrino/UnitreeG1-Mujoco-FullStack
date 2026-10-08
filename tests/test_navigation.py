@@ -340,7 +340,10 @@ def test_cloud_transport_without_camera_keeps_acquisition_time():
     receiver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     receiver.bind(('127.0.0.1', 0))
     receiver.settimeout(1)
+    telemetry_receiver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    telemetry_receiver.bind(('127.0.0.1', 0))
     transport = NavigationTransport({'command_port': 0,
+                                     'telemetry_port': telemetry_receiver.getsockname()[1],
                                      'sensor_port': receiver.getsockname()[1]})
     row = {'position': [0, 0, 0.8], 'quaternion': [1, 0, 0, 0],
            'linear_velocity': [0, 0, 0], 'scan': None, 'scan_time': None,
@@ -364,3 +367,4 @@ def test_cloud_transport_without_camera_keeps_acquisition_time():
     finally:
         transport.close()
         receiver.close()
+        telemetry_receiver.close()

@@ -19,6 +19,9 @@ from g1_backend.config import ROOT, load_config
 from g1_backend.perception import Settings, backproject, detect, transform_points
 from g1_backend.perception_evaluation import aggregate, score, stability
 from g1_backend.perception_tracking import Tracker
+from g1_backend.perception_rgbd import detect_instances, validated_instances
+from g1_backend.perception_views import ViewAccumulator
+from g1_backend.perception_yolo import YoloSegmenter, overlay
 from g1_backend.sensor_effects import SensorEffects
 from g1_backend.simulator import model_xml
 
@@ -52,6 +55,56 @@ def visible_reference(model, data, geom_id, segmentation):
     )
 
 
+def evaluate_view_sequence(cases, output, segmenter, settings):
+    """Replay independent held-out Maxwell views through one tracker per noise profile."""
+    if segmenter is None:
+        return {}
+    sequences = {}
+    closest = min(case['distance_m'] for case in cases)
+    for noise in ('ideal', 'real_profile'):
+        chosen = sorted(
+            [case for case in cases if case['distance_m'] == closest and case['noise'] == noise],
+            key=lambda case: case['bearing_deg'],
+        )
+        tracker, accumulator = Tracker(), ViewAccumulator()
+        records = []
+        for index, case in enumerate(chosen):
+            path = output / f'd{closest}_a{case["bearing_deg"]}_{noise}.npz'
+            with np.load(path) as snapshot:
+                rgb, depth, k = snapshot['d435i_rgb'], snapshot['d435i_depth'], snapshot['k']
+                camera = snapshot['camera_to_processing']
+            instances = segmenter.predict(rgb)
+            raw = detect_instances(depth, rgb, k, instances, camera, settings=settings)
+            tracked = tracker.update(raw, index * 0.5)
+            filtered = score(tracked, case['references']['tables'], 0.6)
+            fused = accumulator.update(tracked, camera, index * 0.5)
+            boxes = [
+                obj
+                for table in fused
+                for obj in table['objects']
+                if obj['kind'] == 'box_candidate'
+            ]
+            records.append(
+                {
+                    'bearing_deg': case['bearing_deg'],
+                    'filtered_tables': filtered,
+                    'fused_tables': score(fused, case['references']['tables'], 0.6),
+                    'fused_boxes': score(boxes, case['references']['boxes']),
+                    'views': [
+                        {'id': item['id'], 'quality': item['quality']}
+                        for table in fused
+                        for item in [table, *table['objects']]
+                    ],
+                }
+            )
+        sequences[noise] = {
+            'frames': records,
+            'filtered_tables': aggregate([row['filtered_tables'] for row in records]),
+            'fused_tables': aggregate([row['fused_tables'] for row in records]),
+        }
+    return sequences
+
+
 def run(args):
     initialize_renderer()
     config = load_config(ROOT / 'configs/experiments/navigation.yaml')
@@ -70,6 +123,7 @@ def run(args):
     )
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
+    segmenter = YoloSegmenter(args.model, args.confidence) if args.backend == 'yolo' else None
     with tempfile.TemporaryDirectory(prefix='g1_perception_eval_') as directory:
         path = Path(directory)
         (path / 'g1_29dof.xml').write_text(sources[0])
@@ -129,19 +183,52 @@ def run(args):
                 }
                 for noise in ('ideal', 'real_profile'):
                     tracker = Tracker()
+                    views = ViewAccumulator()
                     effects = SensorEffects(noise_profile, args.seed)
                     frames = []
                     for index in range(args.frames):
                         sensors = {'d435i_rgb': rgb.copy(), 'd435i_depth': depth.copy()}
                         if noise == 'real_profile':
                             sensors = effects.camera(sensors)
-                        points, colors = backproject(
-                            sensors['d435i_depth'], sensors['d435i_rgb'], k, settings
+                        if segmenter is None:
+                            points, colors = backproject(
+                                sensors['d435i_depth'], sensors['d435i_rgb'], k, settings
+                            )
+                            raw = detect(transform_points(points, extrinsic), colors, settings)
+                        else:
+                            instances = segmenter.predict(sensors['d435i_rgb'])
+                            raw = detect_instances(
+                                sensors['d435i_depth'],
+                                sensors['d435i_rgb'],
+                                k,
+                                instances,
+                                extrinsic,
+                                settings=settings,
+                            )
+                            validated = validated_instances(
+                                sensors['d435i_depth'],
+                                sensors['d435i_rgb'],
+                                k,
+                                instances,
+                                raw,
+                                extrinsic,
+                                settings,
+                            )
+                        tracked = views.update(
+                            tracker.update(raw, index * 0.5), extrinsic, index * 0.5
                         )
-                        raw = detect(transform_points(points, extrinsic), colors, settings)
-                        tracked = tracker.update(raw, index * 0.5)
-                        raw_boxes = [obj for table in raw for obj in table['objects']]
-                        boxes = [obj for table in tracked for obj in table['objects']]
+                        raw_boxes = [
+                            obj
+                            for table in raw
+                            for obj in table['objects']
+                            if obj['kind'] == 'box_candidate'
+                        ]
+                        boxes = [
+                            obj
+                            for table in tracked
+                            for obj in table['objects']
+                            if obj['kind'] == 'box_candidate'
+                        ]
                         frames.append(
                             {
                                 'frame': index,
@@ -161,6 +248,7 @@ def run(args):
                         'bearing_deg': bearing,
                         'noise': noise,
                         'visible_pixels': visibility,
+                        'references': {'tables': table_truth, 'boxes': box_truth},
                         'frames': frames,
                         'box_stability': stability(frames),
                         'table_stability': stability(frames, 'raw_tables', 'filtered_tables'),
@@ -177,6 +265,21 @@ def run(args):
                         k=k,
                         camera_to_processing=extrinsic,
                     )
+                    if segmenter is not None:
+                        import cv2
+
+                        cv2.imwrite(
+                            str(output / f'd{distance}_a{bearing}_{noise}_overlay.png'),
+                            cv2.cvtColor(
+                                overlay(sensors['d435i_rgb'], validated), cv2.COLOR_RGB2BGR
+                            ),
+                        )
+                        cv2.imwrite(
+                            str(output / f'd{distance}_a{bearing}_{noise}_raw_overlay.png'),
+                            cv2.cvtColor(
+                                overlay(sensors['d435i_rgb'], instances), cv2.COLOR_RGB2BGR
+                            ),
+                        )
     summary = {
         key: aggregate([frame[key] for case in cases for frame in case['frames']])
         for key in (
@@ -195,9 +298,12 @@ def run(args):
         'resolution': [args.width, args.height],
         'noise_profile': noise_profile,
         'sensor': 'robot-mounted d435i',
+        'backend': args.backend,
+        'model': args.model if segmenter is not None else None,
         'cases': cases,
         'summary': summary,
         'settings': vars(settings),
+        'view_sequences': evaluate_view_sequence(cases, output, segmenter, settings),
         'limits': [
             'Static camera poses; no locomotion or physical grasp evaluated.',
             'Image noise only; delivery latency and IMU effects are not evaluated.',
@@ -213,6 +319,9 @@ def run(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--backend', choices=['geometry', 'yolo'], default='yolo')
+    parser.add_argument('--model', default='artifacts/perception/g1_objects_yolo11n_seg.onnx')
+    parser.add_argument('--confidence', type=float, default=0.3)
     parser.add_argument('--output', default='results/perception/maxwell_evaluation')
     parser.add_argument('--distances', nargs='+', type=float, default=[0.6, 1.0, 1.5])
     parser.add_argument('--bearings', nargs='+', type=float, default=[-20.0, 0.0, 20.0])

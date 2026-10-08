@@ -4,6 +4,7 @@
 import json
 from pathlib import Path
 import sys
+import time
 
 import numpy as np
 import rclpy
@@ -22,6 +23,9 @@ from visualization_msgs.msg import Marker, MarkerArray
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from g1_backend.perception import Settings, backproject, detect, transform_points
 from g1_backend.perception_tracking import Tracker, TrackingSettings, transform_item
+from g1_backend.perception_rgbd import RefinementSettings, detect_instances, validated_instances
+from g1_backend.perception_views import ViewAccumulator, ViewSettings
+from g1_backend.perception_yolo import YoloSegmenter, overlay
 
 
 def decode(image):
@@ -78,7 +82,13 @@ def visualization(tables, header, now, lifetime):
             if is_table:
                 marker.color.g = 0.8
             else:
-                marker.color.r = 1.0
+                semantic = item.get('semantic_class', 'box')
+                if semantic == 'cylinder':
+                    marker.color.r, marker.color.g = 1.0, 0.65
+                elif semantic == 'sphere':
+                    marker.color.b = 1.0
+                else:
+                    marker.color.r = 1.0
             marker.lifetime = Duration(seconds=lifetime).to_msg()
             markers.markers.append(marker)
             age = max(0.0, now - item['last_seen'])
@@ -93,13 +103,32 @@ def visualization(tables, header, now, lifetime):
             dimensions = ' x '.join(
                 f'{size:.3f}' for size in item['dimensions'][: 2 if is_table else 3]
             )
+            name = (
+                'Mesa'
+                if is_table
+                else {'box': 'Caja', 'cylinder': 'Cilindro', 'sphere': 'Esfera'}.get(
+                    item.get('semantic_class', 'box'), 'Objeto'
+                )
+            )
             label.text = (
-                f'{"Mesa" if is_table else "Caja"} {item["id"]}\n'
+                f'{name} {item["id"]}\n'
                 f'{dimensions} m | edad {age:.2f} s\n'
                 f'{"confirmada" if item["confirmed"] else "provisional"}'
             )
             if item.get('yaw_ambiguous'):
                 label.text += ' | orientacion ambigua'
+            if 'quality' in item:
+                q = item['quality']
+                segmentation = (
+                    f'YOLO {q["segmentation_confidence"]:.2f}'
+                    if q['segmentation_confidence'] is not None
+                    else 'plano geometrico'
+                )
+                label.text += (
+                    f'\n{segmentation} | '
+                    f'profundidad {q["valid_depth_fraction"]:.0%} | '
+                    f'vistas {q.get("view_count", 1)} | {q["status"]}'
+                )
             label.lifetime = marker.lifetime
             markers.markers.append(label)
             for axis in range(3):
@@ -118,13 +147,43 @@ def visualization(tables, header, now, lifetime):
 
 
 class Perception(Node):
-    def __init__(self):
-        super().__init__('g1_perception')
+    def __init__(self, parameter_overrides=None):
+        super().__init__('g1_perception', parameter_overrides=parameter_overrides)
         self.declare_parameter('processing_frame', 'base_link')
         self.declare_parameter('target_frame', 'pelvis')
         self.declare_parameter('tracking_frame', 'odom')
         self.declare_parameter('max_age', 0.5)
         self.declare_parameter('update_period', 0.5)
+        self.declare_parameter('segmentation_backend', 'yolo')
+        self.declare_parameter('yolo.model', 'artifacts/perception/g1_objects_yolo11n_seg.onnx')
+        self.declare_parameter('yolo.confidence', 0.3)
+        self.declare_parameter('yolo.iou', 0.5)
+        self.declare_parameter('yolo.threads', 2)
+        self.declare_parameter('multiview.enabled', True)
+        backend = self.get_parameter('segmentation_backend').value
+        if backend not in ('yolo', 'geometry'):
+            raise ValueError('segmentation_backend must be yolo or geometry')
+        self.segmenter = (
+            YoloSegmenter(
+                self.get_parameter('yolo.model').value,
+                self.get_parameter('yolo.confidence').value,
+                self.get_parameter('yolo.iou').value,
+                self.get_parameter('yolo.threads').value,
+            )
+            if backend == 'yolo'
+            else None
+        )
+        self.refinement = RefinementSettings()
+        for key, value in vars(self.refinement).items():
+            self.declare_parameter('refinement.' + key, value)
+            setattr(self.refinement, key, self.get_parameter('refinement.' + key).value)
+        self.refinement.validate()
+        views = ViewSettings()
+        for key, value in vars(views).items():
+            self.declare_parameter('multiview.' + key, value)
+            setattr(views, key, self.get_parameter('multiview.' + key).value)
+        self.views = ViewAccumulator(views)
+        self.inference_ms = 0.0
         self.settings = Settings()
         for key, value in vars(self.settings).items():
             self.declare_parameter(key, value)
@@ -147,6 +206,13 @@ class Perception(Node):
         self.result_pub = self.create_publisher(String, '/perception/detections', 10)
         self.table_pub = self.create_publisher(PoseStamped, '/perception/table_pose', 10)
         self.box_pub = self.create_publisher(PoseArray, '/perception/box_poses', 10)
+        self.object_pub = self.create_publisher(PoseArray, '/perception/object_poses', 10)
+        self.overlay_pub = self.create_publisher(
+            Image, '/perception/segmentation/image', qos_profile_sensor_data
+        )
+        self.raw_overlay_pub = self.create_publisher(
+            Image, '/perception/segmentation/raw_image', qos_profile_sensor_data
+        )
         self.marker_pub = self.create_publisher(MarkerArray, '/perception/markers', 10)
         self.create_subscription(CameraInfo, '/camera/color/camera_info', self.calibration, 10)
         self.rgb = Subscriber(
@@ -214,14 +280,70 @@ class Perception(Node):
                     target, tracking_frame, capture_time, timeout=Duration(seconds=0.05)
                 )
             )
-            points, colors = backproject(decode(depth), decode(rgb), info.k, self.settings)
-            tables = detect(
-                transform_points(points, camera_to_processing),
-                colors,
-                self.settings,
-                processing_to_tracking,
-            )
+            color_image, depth_image = decode(rgb), decode(depth)
+            started = time.monotonic()
+            if self.segmenter is None:
+                points, colors = backproject(depth_image, color_image, info.k, self.settings)
+                tables = detect(
+                    transform_points(points, camera_to_processing),
+                    colors,
+                    self.settings,
+                    processing_to_tracking,
+                )
+            else:
+                instances = self.segmenter.predict(color_image)
+                tables = detect_instances(
+                    depth_image,
+                    color_image,
+                    info.k,
+                    instances,
+                    camera_to_processing,
+                    processing_to_tracking,
+                    self.settings,
+                    self.refinement,
+                )
+                validated = validated_instances(
+                    depth_image,
+                    color_image,
+                    info.k,
+                    instances,
+                    tables,
+                    processing_to_tracking @ camera_to_processing,
+                    self.settings,
+                )
+                image = Image(
+                    header=rgb.header,
+                    height=rgb.height,
+                    width=rgb.width,
+                    encoding='rgb8',
+                    step=rgb.width * 3,
+                    data=np.ascontiguousarray(overlay(color_image, validated)).tobytes(),
+                )
+                self.overlay_pub.publish(image)
+                if self.raw_overlay_pub.get_subscription_count():
+                    raw = Image(
+                        header=rgb.header,
+                        height=rgb.height,
+                        width=rgb.width,
+                        encoding='rgb8',
+                        step=rgb.width * 3,
+                        data=np.ascontiguousarray(overlay(color_image, instances)).tobytes(),
+                    )
+                    self.raw_overlay_pub.publish(raw)
+            self.inference_ms = (time.monotonic() - started) * 1000
             tables = self.tracker.update(tables, capture_time.nanoseconds / 1e9)
+            if self.get_parameter('multiview.enabled').value:
+                tables = self.views.update(
+                    tables,
+                    processing_to_tracking @ camera_to_processing,
+                    capture_time.nanoseconds / 1e9,
+                )
+            else:
+                for table in tables:
+                    for item in [table, *table['objects']]:
+                        for key in list(item):
+                            if key.startswith('_'):
+                                item.pop(key)
             tables = [transform_item(table, tracking_to_target) for table in tables]
             header = PoseArray().header
             header.stamp, header.frame_id = depth.header.stamp, target
@@ -241,15 +363,26 @@ class Perception(Node):
             'stamp': {'sec': header.stamp.sec, 'nanosec': header.stamp.nanosec},
             'units': 'meters',
             'tracking_frame': self.get_parameter('tracking_frame').value,
+            'segmentation_backend': self.get_parameter('segmentation_backend').value,
+            'inference_ms': self.inference_ms,
             'tables': tables,
         }
         self.result_pub.publish(String(data=json.dumps(payload, allow_nan=False)))
         poses = PoseArray(header=header)
-        poses.poses = [ros_pose(obj) for table in tables for obj in table['objects']]
+        poses.poses = [
+            ros_pose(obj)
+            for table in tables
+            for obj in table['objects']
+            if obj['kind'] == 'box_candidate'
+        ]
+        objects = PoseArray(
+            header=header, poses=[ros_pose(obj) for table in tables for obj in table['objects']]
+        )
         markers = visualization(tables, header, now, self.get_parameter('max_age').value)
         if tables:
             self.table_pub.publish(PoseStamped(header=header, pose=ros_pose(tables[0])))
         self.box_pub.publish(poses)
+        self.object_pub.publish(objects)
         self.marker_pub.publish(markers)
 
 
