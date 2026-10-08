@@ -1,0 +1,35 @@
+g1_perception:
+  ros__parameters:
+    use_sim_time: true
+    # base_link has gravity-aligned axes and its origin at floor height.
+    processing_frame: base_link
+    # Pick currently expresses its arm goals relative to pelvis.
+    target_frame: pelvis
+    # Fixed frame: robot motion must not become apparent object motion.
+    tracking_frame: odom
+    tracking.match_distance: 0.18
+    tracking.dimension_gate: 0.08
+    tracking.timeout: 2.0
+    tracking.alpha: 0.35
+    tracking.confirmation_hits: 2
+    update_period: 0.5
+    max_age: 0.5
+    stride: 2
+    min_depth: 0.2
+    max_depth: 3.5
+    voxel_size: 0.005
+    plane_distance: 0.008
+    plane_trials: 180
+    min_table_points: 150
+    min_table_height: 0.45
+    max_table_height: 1.15
+    max_table_tilt_deg: 12.0
+    min_table_side: 0.25
+    cluster_radius: 0.018
+    min_object_points: 20
+    min_object_height: 0.018
+    max_object_height: 0.4
+    max_object_side: 0.4
+    min_top_fraction: 0.15
+    min_top_rectangularity: 0.85
+    max_tables: 3

@@ -32,6 +32,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def prepare(context):
     ideal = LaunchConfiguration('ideal').perform(context) == 'true'
+    perception = LaunchConfiguration('perception').perform(context) == 'true'
+    if ideal and perception:
+        raise ValueError('perception requires RGB-D sensors; remove --ideal')
     slam_backend = LaunchConfiguration('slam').perform(context)
     sensor_slam = slam_backend != 'slam_toolbox'
     feet_estimation = LaunchConfiguration('feet_estimation').perform(context) == 'true'
@@ -206,6 +209,14 @@ def prepare(context):
             ],
         },
     ])
+    if perception:
+        displays.append({
+            'Class': 'rviz_default_plugins/MarkerArray', 'Name': 'RGB-D perception',
+            'Enabled': True, 'Value': True,
+            'Topic': {'Value': '/perception/markers', 'Depth': 5,
+                      'Reliability Policy': 'Reliable',
+                      'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
+        })
     if sensor_slam:
         displays.append({
             'Class': 'rviz_default_plugins/PointCloud2', 'Name': 'SLAM 3D map',
@@ -273,6 +284,12 @@ def prepare(context):
         Node(package='robot_state_publisher', executable='robot_state_publisher',
              parameters=[robot_description, {'use_sim_time': True}], output='screen'),
     ]
+    if perception:
+        actions.append(ExecuteProcess(
+            cmd=['/usr/bin/python3', str(ROOT / 'scripts/perception_rgbd.py'),
+                 '--ros-args', '--params-file', str(ROOT / 'configs/perception.yaml')],
+            output='screen',
+        ))
     if LaunchConfiguration('nav2').perform(context) == 'true':
         actions.append(ExecuteProcess(
             cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_command_filter.py'),
@@ -495,6 +512,8 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_fps', default_value='0'),
         DeclareLaunchArgument('rviz', default_value='true'),
         DeclareLaunchArgument('nav2', default_value='true'),
+        DeclareLaunchArgument('perception', default_value='false',
+                              description='Detect table surfaces and box candidates from RGB-D'),
         DeclareLaunchArgument('dexterity', default_value='hand', choices=['hand', 'claw']),
         DeclareLaunchArgument('real_odom', default_value='false'),
         DeclareLaunchArgument('feet_estimation', default_value='false'),

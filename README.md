@@ -15,6 +15,14 @@ bash scripts/navigation.sh --slam rgb-d
 Los mapas se guardan en `results/navigation/`. Dependencias, sensores y
 limitaciones se detallan en la [guía de navegación](docs/navigation.md).
 
+Percepción geométrica RGB-D de superficies de mesa y cajas candidatas:
+`bash scripts/navigation.sh perception:=true`. Publica centro, dimensiones y
+orientación en `pelvis`, con visualización en RViz. Uso, salidas y límites en
+[percepción](docs/perception.md).
+Incluye seguimiento en `odom`, IDs, poses filtradas y etiquetas/ejes en RViz.
+`scripts/evaluate_perception.py` compara estimaciones con la referencia de
+MuJoCo en Maxwell, variando distancia, ángulo y ruido.
+
 Stack educativo y modular de locomanipulación para el Unitree G1 de 29 DOF. La
 versión actual llega hasta planificación de brazos con MoveIt 2:
 
