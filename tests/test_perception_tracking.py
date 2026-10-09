@@ -184,3 +184,32 @@ def test_dimension_and_orientation_variation_reject_stability():
             observation['dimensions'][0] += 0.04
         obj = tracker.update([table([observation])], 1)[0]['objects'][0]
         assert not obj['stable'] and reason in obj['stability']['reasons']
+
+
+def test_object_id_survives_support_table_id_change_without_crossing_support_planes():
+    tracker = Tracker()
+    first = table([box()])
+    first['objects'][0].update(_support_center=[0, 0, 0.75], _support_normal=[0, 0, 1])
+    initial = tracker.update([first], 0)[0]['objects'][0]
+    # Different visible extent creates a new table ID, but object stays in place.
+    replacement = deepcopy(first)
+    replacement['center'][0] = 2.0
+    replacement['dimensions'] = [0.3, 0.3, 0]
+    result = tracker.update([replacement], 0.5)[0]['objects'][0]
+    assert result['id'] == initial['id']
+    another = deepcopy(replacement)
+    another['objects'][0]['_support_center'][2] = 1.0
+    result = tracker.update([another], 1)[0]['objects'][0]
+    assert result['id'] != initial['id']
+
+
+def test_global_assignment_never_reuses_object_id_in_two_tables():
+    tracker = Tracker()
+    item = table([box()])
+    item['objects'][0].update(_support_center=[0, 0, 0.75], _support_normal=[0, 0, 1])
+    tracker.update([item], 0)
+    other = deepcopy(item)
+    other['center'][0] = 0.4
+    tables = tracker.update([item, other], 0.5)
+    ids = [obj['id'] for support in tables for obj in support['objects']]
+    assert len(ids) == len(set(ids))

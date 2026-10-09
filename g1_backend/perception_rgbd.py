@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import cv2
 import numpy as np
-from scipy.spatial import QhullError, cKDTree
+from scipy.spatial import ConvexHull, QhullError, cKDTree
 from scipy.spatial.transform import Rotation
 
 from .perception import Settings, backproject, clusters, detect, pose, rectangle, transform_points
@@ -21,6 +21,14 @@ class RefinementSettings:
     min_valid_fraction: float = 0.35
     neighbor_radius: float = 0.025
     support_margin: float = 0.025
+    min_supported_fraction: float = 0.25
+    min_component_fraction: float = 0.6
+    box_shape_validation: bool = True
+    box_max_aspect_ratio: float = 6.0
+    duplicate_point_fraction: float = 0.6
+    partial_box_confidence: float = 0.55
+    partial_box_rectangularity: float = 0.45
+    partial_box_min_aspect: float = 1.3
 
     def validate(self):
         if min(self.min_mask_pixels, self.min_points) < 3 or self.erosion_pixels < 0:
@@ -30,6 +38,21 @@ class RefinementSettings:
             or min(self.neighbor_radius, self.support_margin) <= 0
         ):
             raise ValueError('Invalid RGB-D refinement thresholds')
+        fractions = [
+            self.min_supported_fraction,
+            self.min_component_fraction,
+            self.duplicate_point_fraction,
+            self.partial_box_confidence,
+            self.partial_box_rectangularity,
+        ]
+        if (
+            not np.isfinite([*fractions, self.box_max_aspect_ratio]).all()
+            or any(not 0 < v <= 1 for v in fractions)
+            or self.box_max_aspect_ratio < 1
+            or not np.isfinite(self.partial_box_min_aspect)
+            or self.partial_box_min_aspect < 1
+        ):
+            raise ValueError('Invalid component, shape or duplicate thresholds')
 
 
 def mask_points(depth, rgb, k, mask, settings, refinement):
@@ -223,11 +246,13 @@ def detect_instances(
         if not choices:
             continue
         _, table, axes, supported = max(choices, key=lambda item: item[0])
+        if supported.sum() / len(optical) < r.min_supported_fraction:
+            continue
         points, colors = points[supported], colors[supported]
         components = list(clusters(points, r.neighbor_radius))
         component = max(components, key=len)
         observed, colors = points[component], colors[component]
-        if len(observed) < r.min_points:
+        if len(observed) < r.min_points or len(observed) / len(points) < r.min_component_fraction:
             continue
         local = (observed - table['center']) @ axes
         try:
@@ -237,6 +262,37 @@ def detect_instances(
         height = float(np.quantile(local[:, 2], 0.98))
         if min(size) < 0.005 or max(size) > s.max_object_side:
             continue
+        rectangularity = None
+        partial_shape = False
+        if instance.label == 'box' and r.box_shape_validation:
+            if len(observed) < s.min_object_points:
+                continue
+            top = local[abs(local[:, 2] - height) <= s.plane_distance]
+            if len(top) >= 8 and len(top) / len(local) >= s.min_top_fraction:
+                try:
+                    _, top_size, _ = rectangle(top[:, :2])
+                    rectangularity = float(ConvexHull(top[:, :2]).volume / np.prod(top_size))
+                except QhullError:
+                    pass
+            full_shape = (
+                rectangularity is not None
+                and rectangularity >= s.min_top_rectangularity
+                and size[0] / size[1] <= r.box_max_aspect_ratio
+            )
+            if not full_shape:
+                x0, y0, x1, y1 = instance.box_xyxy
+                truncated = (
+                    x0 <= 1 or y0 <= 1 or x1 >= depth.shape[1] - 1 or y1 >= depth.shape[0] - 1
+                )
+                partial_shape = (
+                    instance.confidence >= r.partial_box_confidence
+                    and (truncated or size[0] / size[1] >= r.partial_box_min_aspect)
+                    and rectangularity is not None
+                    and rectangularity >= r.partial_box_rectangularity
+                    and supported.sum() / len(optical) >= 0.5
+                )
+                if not partial_shape:
+                    continue
         center = np.asarray(table['center']) + axes @ np.r_[xy, height / 2]
         rotation = axes @ Rotation.from_euler('z', yaw).as_matrix()
         obj = {
@@ -262,9 +318,43 @@ def detect_instances(
             '_support_center': table['center'],
             '_support_normal': axes[:, 2].tolist(),
         }
+        if partial_shape:
+            obj['quality']['warnings'].append('box_shape_incomplete')
+            obj['quality']['status'] = 'limited'
+        obj['quality']['box_geometry'] = (
+            'partial'
+            if partial_shape
+            else ('rectangular_top' if rectangularity is not None else 'not_checked')
+        )
+        if rectangularity is not None:
+            obj['quality']['top_rectangularity'] = rectangularity
+        obj['quality']['supported_fraction'] = float(supported.sum() / len(optical))
+        obj['quality']['component_fraction'] = float(len(observed) / len(points))
         if obj['yaw_ambiguous']:
             obj['quality']['warnings'].append('orientation_ambiguous')
         table['objects'].append(obj)
+    # Depth-space duplicate suppression also handles conflicting visual categories.
+    for table in tables:
+        accepted = []
+        for obj in sorted(
+            table['objects'],
+            key=lambda item: item['quality']['segmentation_confidence'],
+            reverse=True,
+        ):
+            duplicate = False
+            for previous in accepted:
+                if np.linalg.norm(np.array(obj['center']) - previous['center']) > 0.04:
+                    continue
+                if np.linalg.norm(np.array(obj['mean_rgb']) - previous['mean_rgb']) > 80:
+                    continue
+                small, large = sorted([obj['_points'], previous['_points']], key=len)
+                distance, _ = cKDTree(large).query(small)
+                if np.mean(distance <= s.plane_distance * 2) >= r.duplicate_point_fraction:
+                    duplicate = True
+                    break
+            if not duplicate:
+                accepted.append(obj)
+        table['objects'] = accepted
     return [transform_item(table, transform) for table in tables]
 
 

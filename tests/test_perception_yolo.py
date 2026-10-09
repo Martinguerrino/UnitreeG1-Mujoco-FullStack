@@ -188,3 +188,35 @@ def test_validated_overlay_uses_output_frame_and_keeps_real_box():
     assert {instance.label for instance in validated} == {'table', 'box'}
     box = next(instance for instance in validated if instance.label == 'box')
     assert not np.any(box.mask & ~instances[1].mask)
+
+
+def test_round_top_mislabeled_as_box_is_rejected_but_cylinder_is_retained():
+    depth, rgb, k, extrinsic, _instances = rgbd()
+    v, u = np.mgrid[: depth.shape[0], : depth.shape[1]]
+    round_mask = (u - 90) ** 2 + (v - 55) ** 2 < 7**2
+    depth[:] = 0.85
+    depth[round_mask] = 0.75
+    rgb[:] = 100
+    proposals = [
+        Instance('table', 0.95, ~round_mask, [0, 0, 160, 120]),
+        Instance('box', 0.9, round_mask, [83, 48, 98, 63]),
+    ]
+    settings = Settings(min_table_points=50)
+    refined = detect_instances(depth, rgb, k, proposals, extrinsic, settings=settings)
+    assert refined and not refined[0]['objects']
+    proposals[1].label = 'cylinder'
+    refined = detect_instances(depth, rgb, k, proposals, extrinsic, settings=settings)
+    assert any(
+        obj['semantic_class'] == 'cylinder' for table in refined for obj in table['objects']
+    )
+
+
+def test_depth_space_duplicates_across_visual_classes_are_suppressed():
+    depth, rgb, k, extrinsic, instances = rgbd()
+    mask = instances[1].mask.copy()
+    instances.append(Instance('cylinder', 0.4, mask, instances[1].box_xyxy))
+    refined = detect_instances(
+        depth, rgb, k, instances, extrinsic, settings=Settings(min_table_points=50)
+    )
+    objects = [obj for table in refined for obj in table['objects']]
+    assert len(objects) == 1 and objects[0]['semantic_class'] == 'box'

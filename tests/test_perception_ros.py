@@ -266,3 +266,87 @@ def test_installed_yolo_ros_masks_classes_depth_and_quality():
         detector.destroy_node()
         source.destroy_node()
         rclpy.shutdown()
+
+
+def test_delayed_tf_keeps_capture_and_uses_ready_older_pair_without_latest_tf_fallback():
+    from copy import deepcopy
+    from unittest.mock import Mock
+    from rclpy.time import Time
+
+    rclpy.init()
+    detector = module.Perception(
+        parameter_overrides=[
+            Parameter('segmentation_backend', value='geometry'),
+            Parameter('processing_frame', value='base_link'),
+            Parameter('tracking_frame', value='base_link'),
+            Parameter('target_frame', value='base_link'),
+            Parameter('update_period', value=0.001),
+            Parameter('min_table_points', value=50),
+        ]
+    )
+    detector.result_pub = Mock()
+    height, width, focal = 120, 160, 100.0
+    yy, xx = np.mgrid[:height, :width]
+    x = (xx - (width - 1) / 2) * 0.75 / focal
+    y = -(yy - (height - 1) / 2) * 0.75 / focal
+    mask = (abs(x - 0.1) < 0.08) & (abs(y - 0.05) < 0.04)
+    depth = np.full((height, width), 0.85, dtype='<f4')
+    depth[mask] = 0.75
+    rgb = np.full((height, width, 3), 100, dtype='uint8')
+    info = CameraInfo(width=width, height=height)
+    info.header.frame_id = 'delayed_camera'
+    info.k = [focal, 0, (width - 1) / 2, 0, focal, (height - 1) / 2, 0, 0, 1]
+    detector.calibration(info)
+    try:
+        now = detector.get_clock().now().nanoseconds
+        stamps = [
+            Time(nanoseconds=now - 60000000).to_msg(),
+            Time(nanoseconds=now - 20000000).to_msg(),
+        ]
+        for timestamp in stamps:
+            info.header.stamp = timestamp
+            color = Image(
+                header=deepcopy(info.header),
+                width=width,
+                height=height,
+                encoding='rgb8',
+                step=width * 3,
+                data=rgb.tobytes(),
+            )
+            distance = Image(
+                header=deepcopy(info.header),
+                width=width,
+                height=height,
+                encoding='32FC1',
+                step=width * 4,
+                data=depth.tobytes(),
+            )
+            detector.capture(color, distance)
+        detector.process()
+        assert len(detector.captures.queue) == 2
+        transform = TransformStamped()
+        transform.header.frame_id = 'base_link'
+        transform.child_frame_id = 'delayed_camera'
+        transform.header.stamp = stamps[0]
+        transform.transform.translation.z = 1.6
+        transform.transform.rotation.x = 1.0
+        transform.transform.rotation.w = 0.0
+        detector.tf.set_transform(transform, 'delayed_test')
+        detector.process()
+        result = json.loads(detector.result_pub.publish.call_args.args[0].data)
+        assert result['status'] == 'ok' and result['stamp'] == {
+            'sec': stamps[0].sec,
+            'nanosec': stamps[0].nanosec,
+        }
+        assert len(detector.captures.queue) == 1
+        assert result['tables'][0]['free_space']['area_m2'] > 0
+        assert result['tables'][0]['free_regions']
+        transform.header.stamp = stamps[1]
+        detector.tf.set_transform(transform, 'delayed_test')
+        time.sleep(0.002)
+        detector.process()
+        result = json.loads(detector.result_pub.publish.call_args.args[0].data)
+        assert result['status'] == 'ok' and result['stamp']['nanosec'] == stamps[1].nanosec
+    finally:
+        detector.destroy_node()
+        rclpy.shutdown()

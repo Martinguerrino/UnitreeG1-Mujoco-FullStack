@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / 'artifacts/perception/python'))
 CLASSES = {0: 'table', 1: 'box', 2: 'cylinder', 3: 'sphere'}
 
 
-def make_scene(rng):
+def make_scene(rng, include_boxes=True):
     height = rng.uniform(0.68, 0.9)
     sx, sy = rng.uniform(0.65, 1.05), rng.uniform(0.35, 0.65)
     background = rng.uniform(0.18, 0.85, 3)
@@ -32,7 +32,7 @@ def make_scene(rng):
     objects = []
     occupied = []
     for index in range(int(rng.integers(2, 6))):
-        kind = int(rng.integers(1, 4))
+        kind = int(rng.integers(1 if include_boxes else 2, 4))
         extent = rng.uniform(0.025, 0.065)
         if kind == 1:
             dx, dy, dz = extent, rng.uniform(0.025, 0.065), rng.uniform(0.025, 0.07)
@@ -81,7 +81,21 @@ def make_scene(rng):
     return xml, [('table', 0), *objects]
 
 
-def generate(directory, count, seed):
+def make_background_scene(rng):
+    """Floor, wall and furniture panels; no tabletop target objects."""
+    grey = ' '.join(map(str, rng.uniform(0.2, 0.8, 3))) + ' 1'
+    xml = f'''<mujoco><visual><global offwidth="424" offheight="320"/></visual>
+      <worldbody><light pos="0 -1 3"/><camera name="rgbd" pos="0 -2 1.3"
+      xyaxes="1 0 0 0 .8 .6" fovy="58"/>
+      <geom type="plane" size="5 5 .1" rgba="{grey}"/>
+      <geom type="box" pos="0 .8 1" size="2 .1 1" rgba="{grey}"/>
+      <geom type="box" pos="-.5 0 .6" size=".3 .2 .6" rgba="{grey}"/>
+      <geom type="box" pos=".5 .2 .4" size=".06 .3 .4" rgba="{grey}"/>
+      </worldbody></mujoco>'''
+    return xml, []
+
+
+def generate(directory, count, seed, hard_negative_fraction=0.0):
     initialize_renderer()
     directory.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(seed)
@@ -91,13 +105,20 @@ def generate(directory, count, seed):
         image_dir, label_dir = directory / 'images' / split, directory / 'labels' / split
         image_dir.mkdir(parents=True, exist_ok=True)
         label_dir.mkdir(parents=True, exist_ok=True)
-        xml, targets = make_scene(rng)
+        hard = index < int(count * hard_negative_fraction)
+        background = hard and index % 2 == 0
+        xml, targets = (
+            make_background_scene(rng) if background else make_scene(rng, include_boxes=not hard)
+        )
         model = mujoco.MjModel.from_xml_string(xml)
         data = mujoco.MjData(model)
         mujoco.mj_forward(model, data)
         with mujoco.Renderer(model, height=288, width=384) as renderer:
             renderer.update_scene(data, camera='rgbd')
             image = renderer.render().copy()
+            renderer.enable_depth_rendering()
+            depth = renderer.render().copy()
+            renderer.disable_depth_rendering()
             renderer.enable_segmentation_rendering()
             segmentation = renderer.render().copy()
         labels = []
@@ -122,10 +143,34 @@ def generate(directory, count, seed):
                 str(class_id) + ' ' + ' '.join(f'{value:.6f}' for value in polygon.ravel())
             )
         filename = f'{index:05d}'
+        if hard:
+            capture_dir = directory / 'captures'
+            capture_dir.mkdir(exist_ok=True)
+            camera_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, 'rgbd')
+            transform = np.eye(4)
+            transform[:3, :3] = data.cam_xmat[camera_id].reshape(3, 3) @ np.diag([1, -1, -1])
+            transform[:3, 3] = data.cam_xpos[camera_id]
+            focal = image.shape[0] / (2 * np.tan(np.deg2rad(model.cam_fovy[camera_id]) / 2))
+            k = [focal, 0, (image.shape[1] - 1) / 2, 0, focal, (image.shape[0] - 1) / 2, 0, 0, 1]
+            np.savez_compressed(
+                capture_dir / (filename + '.npz'),
+                rgb=image,
+                depth=depth,
+                k=k,
+                camera_to_processing=transform,
+            )
         cv2.imwrite(str(image_dir / (filename + '.png')), cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
         (label_dir / (filename + '.txt')).write_text('\n'.join(labels) + '\n')
         entries.append(
-            {'id': filename, 'split': split, 'classes': [int(line.split()[0]) for line in labels]}
+            {
+                'id': filename,
+                'split': split,
+                'classes': [int(line.split()[0]) for line in labels],
+                'hard_negative': hard,
+                'mode': 'background'
+                if background
+                else ('round_objects_only' if hard else 'mixed_objects'),
+            }
         )
         if index % 40 == 0:
             print(f'Rendered {index}/{count}', flush=True)
@@ -144,6 +189,7 @@ def generate(directory, count, seed):
             {
                 'seed': seed,
                 'count': count,
+                'hard_negative_fraction': hard_negative_fraction,
                 'source': 'Randomized standalone MuJoCo scenes, not Maxwell evaluation views',
                 'annotation': 'MuJoCo geom segmentation, used for training labels only',
                 'entries': entries,
@@ -160,13 +206,18 @@ def main():
     parser.add_argument('--seed', type=int, default=73)
     parser.add_argument('--dataset-only', action='store_true')
     parser.add_argument('--reuse-dataset', action='store_true')
+    parser.add_argument('--hard-negative-fraction', type=float, default=0.25)
+    parser.add_argument('--output', default='artifacts/perception')
     args = parser.parse_args()
-    output = ROOT / 'artifacts/perception'
+    if args.samples < 5 or not 0 <= args.hard_negative_fraction <= 1:
+        parser.error('samples must be >= 5 and hard-negative-fraction in [0,1]')
+    output = ROOT / args.output
     dataset = output / 'dataset'
     if not args.reuse_dataset:
-        generate(dataset, args.samples, args.seed)
+        generate(dataset, args.samples, args.seed, args.hard_negative_fraction)
     if args.dataset_only:
         return
+    dataset_manifest = json.loads((dataset / 'manifest.json').read_text())
     # Disable automatic package/config updates and direct caches to workspace.
     import os
 
@@ -217,7 +268,8 @@ def main():
         ).hexdigest(),
         'onnx_sha256': hashlib.sha256(Path(exported).read_bytes()).hexdigest(),
         'pretrained_sha256': hashlib.sha256(pretrained.read_bytes()).hexdigest(),
-        'samples': args.samples,
+        'samples': dataset_manifest['count'],
+        'hard_negative_fraction': dataset_manifest.get('hard_negative_fraction', 0.0),
         'epochs_requested': args.epochs,
         'seed': args.seed,
         'ultralytics': __import__('ultralytics').__version__,

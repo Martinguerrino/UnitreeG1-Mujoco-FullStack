@@ -1,5 +1,7 @@
 """Headless locomotion + ROS perception smoke test in the real Maxwell simulation."""
 
+import argparse
+import ast
 import json
 import os
 from pathlib import Path
@@ -17,6 +19,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output', default='results/perception/motion_ros')
+    args = parser.parse_args()
     rclpy.init()
     node = rclpy.create_node('perception_motion_observer')
     captures, positions, clock = [], [], [0.0]
@@ -40,7 +45,7 @@ def main():
         ),
     ]
     publisher = node.create_publisher(Twist, '/cmd_vel', 10)
-    output = ROOT / 'results/perception/motion_ros'
+    output = ROOT / args.output
     output.mkdir(parents=True, exist_ok=True)
     log = (output / 'launch.log').open('w')
     process = subprocess.Popen(
@@ -107,8 +112,20 @@ def main():
         if positions
         else 0
     )
+    physics = {}
+    for line in (output / 'launch.log').read_text().splitlines():
+        if "{'results_dir':" in line:
+            try:
+                result = ast.literal_eval(line[line.index("{'results_dir':") :])
+                physics = {
+                    key: result.get(key)
+                    for key in ['status', 'falls', 'collisions', 'watchdog_events', 'render_fps']
+                }
+            except (ValueError, SyntaxError):
+                pass
     report = {
         'timed_out': timed_out,
+        'physics': physics,
         'exit_code': process.returncode,
         'sim_seconds': clock[0],
         'displacement_m': displacement,

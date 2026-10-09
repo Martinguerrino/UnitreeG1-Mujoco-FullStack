@@ -24,6 +24,10 @@ def transform_item(item, transform):
         result['_support_normal'] = (transform[:3, :3] @ item['_support_normal']).tolist()
     if 'raw_pose' in item:
         result['raw_pose'] = transform_item(item['raw_pose'], transform)
+    if 'free_regions' in item:
+        result['free_regions'] = [
+            transform_item(region, transform) for region in item['free_regions']
+        ]
     if 'objects' in item:
         result['objects'] = [transform_item(obj, transform) for obj in item['objects']]
     return result
@@ -109,7 +113,7 @@ class Tracker:
                 track['item']['kind'] == kind
                 or (kind == 'object' and track['item']['kind'] != 'table_surface')
             )
-            and track['parent'] == parent
+            and (kind == 'object' or track['parent'] == parent)
         ]
         matches = {}
         if candidates and observations:
@@ -122,7 +126,9 @@ class Tracker:
                         and previous.get('semantic_class') != measured.get('semantic_class')
                     ):
                         continue
-                    distance = np.linalg.norm(np.array(previous['center']) - measured['center'])
+                    # Associate against the latest raw observation, not the lagging filter.
+                    reference_center = track.get('raw_center', previous['center'])
+                    distance = np.linalg.norm(np.array(reference_center) - measured['center'])
                     size_delta = np.max(
                         np.abs(np.array(previous['dimensions']) - measured['dimensions'])
                     )
@@ -130,6 +136,22 @@ class Tracker:
                     gate = self.settings.dimension_gate if kind != 'table_surface' else np.inf
                     distance_gate = self.settings.match_distance
                     compatible_plane = True
+                    if kind == 'object':
+                        if '_support_center' in measured and 'support_center' in track:
+                            normal = np.array(track['support_normal'])
+                            compatible_plane = (
+                                abs(
+                                    (
+                                        np.array(measured['_support_center'])
+                                        - track['support_center']
+                                    )
+                                    @ normal
+                                )
+                                < 0.04
+                                and normal @ np.array(measured['_support_normal']) > 0.95
+                            )
+                        else:
+                            compatible_plane = track['parent'] == measured.get('_parent', parent)
                     if kind == 'table_surface':
                         normal = Rotation.from_quat(previous['orientation_xyzw']).as_matrix()[:, 2]
                         current_normal = Rotation.from_quat(
@@ -191,6 +213,12 @@ class Tracker:
                 )
                 rotations = Rotation.from_quat([previous['orientation_xyzw'], closest.as_quat()])
                 item['orientation_xyzw'] = Slerp([0, 1], rotations)(alpha).as_quat().tolist()
+            track['parent'] = measured.get('_parent', parent)
+            track['raw_center'] = raw_pose['center']
+            if '_support_center' in measured:
+                track['support_center'] = deepcopy(measured['_support_center'])
+                track['support_normal'] = deepcopy(measured['_support_normal'])
+            item.pop('_parent', None)
             track['hits'] += 1
             track['last_seen'] = stamp
             track['item'] = {
@@ -272,6 +300,25 @@ class Tracker:
             raise ValueError('Capture time must be finite')
         self.expire(stamp)
         tracked = self._group(tables, stamp, 'table_surface')
+        observations = []
         for table, measured in zip(tracked, tables, strict=True):
-            table['objects'] = self._group(measured['objects'], stamp, 'object', table['id'])
+            for obj in measured['objects']:
+                observations.append(
+                    {
+                        **obj,
+                        '_parent': table['id'],
+                        '_support_center': obj.get('_support_center', measured['center']),
+                        '_support_normal': obj.get(
+                            '_support_normal',
+                            Rotation.from_quat(measured['orientation_xyzw'])
+                            .as_matrix()[:, 2]
+                            .tolist(),
+                        ),
+                    }
+                )
+        objects = self._group(observations, stamp, 'object')
+        for table in tracked:
+            table['objects'] = [
+                obj for obj in objects if self.tracks[obj['track_id']]['parent'] == table['id']
+            ]
         return tracked

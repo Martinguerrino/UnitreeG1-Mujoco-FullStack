@@ -57,7 +57,9 @@ Percepción con YOLO11n-seg y RGB-D de mesas, cajas, cilindros y esferas:
 orientación en `pelvis`, con visualización en RViz. Uso, salidas y límites en
 [percepción](docs/perception.md).
 Incluye máscaras, seguimiento en `odom`, acumulación de vistas, IDs y etiquetas/ejes en RViz.
-El panel **Percepción RGB-D** muestra estados, dimensiones y motivos de inestabilidad.
+El panel **Percepción RGB-D** muestra estados, dimensiones, motivos de inestabilidad
+y área libre visible de la mesa. Los parches cian representan superficie libre
+observada con margen respecto de bordes y obstáculos.
 Preparación del modelo y uso: [segmentación YOLO](docs/perception_yolo.md).
 `scripts/evaluate_perception.py` compara estimaciones con la referencia de
 MuJoCo en Maxwell, variando distancia, ángulo y ruido.

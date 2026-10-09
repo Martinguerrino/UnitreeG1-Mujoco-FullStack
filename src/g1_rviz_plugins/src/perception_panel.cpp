@@ -17,10 +17,10 @@ PerceptionPanel::PerceptionPanel(QWidget * parent) : rviz_common::Panel(parent)
   status_ = new QLabel("Esperando percepción…", this);
   status_->setObjectName("perception_status");
   layout->addWidget(status_);
-  table_ = new QTableWidget(0, 7, this);
+  table_ = new QTableWidget(0, 8, this);
   table_->setObjectName("perception_objects");
   table_->setHorizontalHeaderLabels({"Objeto / ID", "Seguimiento", "Estabilidad", "Edad (s)",
-    "Dimensiones (m)", "Profundidad", "Motivo"});
+    "Dimensiones (m)", "Profundidad", "Motivo / calidad", "Libre visible (m²)"});
   table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
   table_->setSelectionBehavior(QAbstractItemView::SelectRows);
   table_->verticalHeader()->hide();
@@ -111,6 +111,9 @@ void PerceptionPanel::refresh()
       reasons.append(translations.value(reason.toString(), reason.toString()));
     }
     if (!fresh) {reasons.append("Observación antigua");}
+    if (item.value("quality").toObject().value("warnings").toArray().contains("box_shape_incomplete")) {
+      reasons.append("Geometría de caja parcial");
+    }
     const auto dimensions = item.value("dimensions").toArray();
     QStringList sizes;
     for (const auto & size : dimensions) {sizes.append(QString::number(size.toDouble(), 'f', 3));}
@@ -121,7 +124,8 @@ void PerceptionPanel::refresh()
       !fresh ? "Antigua" : (stable ? "Estable" : "Inestable"),
       capture_age >= 0 ? QString::number(age, 'f', 2) : "—",
       sizes.join(" × "), depth.isDouble() ? QString::number(depth.toDouble()*100, 'f', 0)+"%" : "—",
-      reasons.isEmpty() ? "—" : reasons.join(", ")};
+      reasons.isEmpty() ? "—" : reasons.join(", "),
+      fresh && item.contains("free_space") ? QString::number(item.value("free_space").toObject().value("area_m2").toDouble(), 'f', 3) : "—"};
     const int row = table_->rowCount();
     table_->insertRow(row);
     for (int column = 0; column < cells.size(); ++column) {

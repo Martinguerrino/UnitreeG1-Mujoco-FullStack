@@ -52,8 +52,11 @@ sudo apt install python3-numpy python3-scipy ros-jazzy-message-filters \
 
 Procesamiento del backend geométrico de referencia:
 
-1. Sincroniza RGB y profundidad con tolerancia de 20 ms. Usa únicamente el par
-   más reciente, con antigüedad máxima de 0.5 s. Procesa cada 0.5 s.
+1. Sincroniza RGB y profundidad con tolerancia de 20 ms. Mantiene hasta ocho pares
+   durante la espera de TF y elige el más reciente con transformaciones disponibles
+   al instante exacto de captura. La antigüedad máxima es 0.5 s; la espera de TF
+   se limita a 0.3 s de reloj monotónico. Consulta TF sin bloquear cada 20 ms
+   y realiza inferencia como máximo cada 0.5 s.
 2. Reconstruye puntos ópticos con `X=(u-cx)*Z/fx`, `Y=(v-cy)*Z/fy` y `Z=depth`.
    Acepta profundidad `32FC1` en metros o `16UC1` en milímetros, RGB `rgb8`,
    padding de filas y ambos órdenes de bytes. Descarta profundidad inválida.
@@ -129,7 +132,7 @@ reduce variación temporal pero introduce retraso ante movimientos reales y no
 corrige sesgos ni completa superficies ocultas.
 
 El JSON es la fuente de validez: `ok`, `no_table`, `waiting_for_rgbd`,
-`waiting_for_calibration` o `unavailable: ...`. Una salida inválida contiene
+`waiting_for_calibration`, `waiting_for_tf` o `unavailable: ...`. Una salida inválida contiene
 `tables: []`, vacía `box_poses` y borra los markers. Los markers también vencen
 solos. `table_pose` sólo publica detecciones válidas; un consumidor debe comprobar
 su timestamp y el estado del JSON antes de reutilizar la última pose.
@@ -277,3 +280,69 @@ y ángulos de cámara, con referencia de MuJoCo sólo para puntuar. La segunda
 inicia una sesión aislada de marcha física y percepción ROS, sin RViz ni Nav2;
 no ejecutarla junto a otra navegación porque comparten puertos de simulación.
 Resultados y límites: [evaluación dinámica](perception_dynamic_validation_20261009.md).
+
+## Sincronización, continuidad y validación de candidatos
+
+`sync.queue_size`, `sync.tf_wait` y `sync.poll_period` configuran una cola acotada.
+Se comprueba toda la cadena de TF al timestamp de profundidad sin bloquear el
+hilo que recibe TF. Si el par más reciente aún no tiene TF, se puede procesar
+un par anterior que ya lo tenga, dentro de `max_age`. No se sustituye por TF de
+“ahora” ni se reproduce una captura ya procesada. El reinicio del reloj vacía
+la cola. `synchronization` en el JSON informa cola y descartes por capacidad,
+antigüedad, timeout de TF y capturas reemplazadas.
+
+La asociación de objetos se realiza globalmente una sola vez por captura, usando
+la última posición sin filtrar y un plano de apoyo compatible. Así, cambiar el
+ID de la mesa por un contorno visible diferente no obliga a cambiar el de la
+caja. La asignación sigue siendo uno a uno; mesas de alturas distintas no se
+mezclan. No garantiza continuidad si objetos parecidos se cruzan o cambia la
+clase visual.
+
+El refinamiento exige soporte sobre la mesa y un componente 3D dominante.
+Las cajas se comprueban por tapa rectangular y dimensiones observadas; máscaras
+fragmentadas y duplicados en profundidad pueden descartarse. Cajas con tapa
+incompleta pueden conservarse como candidatos si tienen suficiente evidencia
+visual y geométrica, con `quality.box_geometry: partial`, estado `limited` y
+advertencia `box_shape_incomplete`. El panel muestra **Geometría de caja parcial**.
+Una detección estable puede seguir teniendo geometría incompleta. Los parámetros
+`refinement.*` permiten ajustar ese compromiso; los scores de YOLO no son una
+probabilidad calibrada de que el objeto sea correcto.
+
+Se agregaron fondos y escenas con cilindros/esferas sin cajas a la preparación
+de datos de YOLO. Los pesos distribuidos **no se reentrenaron ni reemplazaron**;
+la mejora activa viene del refinamiento 3D y seguimiento. Para generar casos
+independientes y comprobar el modelo actual:
+
+```bash
+"$G1_PYTHON" scripts/train_perception_yolo.py --dataset-only --samples 120 \
+  --seed 193 --hard-negative-fraction 0.5 --output artifacts/perception/hard_examples
+"$G1_PYTHON" scripts/evaluate_perception_hard_negatives.py
+```
+
+La generación habitual admite `--hard-negative-fraction` (0.25 por defecto),
+y conserva ese dato en el manifiesto del entrenamiento, incluso al reutilizar
+datasets. No se usan vistas de Maxwell como entrenamiento.
+
+## Superficie libre observada de la mesa
+
+Con `free_space.enabled: true`, se muestran parches **cian** en el grupo
+**RGB-D perception**. El panel **Percepción RGB-D** incluye **Libre visible (m²)**.
+Cada mesa publica `free_space` y `free_regions`: centro, orientación, dimensiones
+y área de regiones candidatas en el mismo frame que la mesa.
+
+Se reconstruye una rejilla de 2.5 cm exclusivamente con puntos de superficie
+observados en la captura actual. Se excluyen puntos elevados, huellas de todos
+los objetos detectados, regiones sin lectura y zonas ocultas. Se dejan 4 cm
+respecto de obstáculos y del borde observado, con margen adicional por la
+resolución de la rejilla. Hasta seis rectángulos de al menos 8 cm por lado se
+visualizan. El área indicada suma celdas libres observadas y puede exceder la
+suma de los rectángulos mostrados.
+
+No se completa la superficie libre por acumular vistas ni por rellenar agujeros:
+una cara oculta es desconocida. No demuestra que el tablero completo esté libre,
+ni calcula una colocación o movimiento de brazo. Una captura antigua borra los
+parches y pone su área en cero. La clase geométrica de una superficie de apoyo
+puede estar sin confirmar visualmente. Ajustes: `free_space.cell_size`,
+`edge_margin`, `obstacle_margin`, `min_side`, `max_regions` y `max_cells`.
+
+Comparación y límites: [mejoras de percepción](perception_improvements_20261009.md).

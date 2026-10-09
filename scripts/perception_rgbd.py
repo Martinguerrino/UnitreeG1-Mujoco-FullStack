@@ -22,6 +22,8 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from g1_backend.perception import Settings, backproject, detect, transform_points
+from g1_backend.perception_free_space import FreeSpaceSettings, attach_free_space
+from g1_backend.perception_sync import CaptureQueue
 from g1_backend.perception_tracking import Tracker, TrackingSettings, transform_item
 from g1_backend.perception_rgbd import RefinementSettings, detect_instances, validated_instances
 from g1_backend.perception_views import ViewAccumulator, ViewSettings
@@ -144,6 +146,20 @@ def visualization(tables, header, now, lifetime):
                 arrow.color.a = 1.0
                 arrow.lifetime = marker.lifetime
                 markers.markers.append(arrow)
+        for index, region in enumerate(table.get('free_regions', [])):
+            patch = Marker(
+                header=header, ns='rgbd_free_surface', id=table['track_id'] * 100 + index
+            )
+            patch.type, patch.action = Marker.CUBE, Marker.ADD
+            patch.pose = ros_pose(region)
+            up = Rotation.from_quat(region['orientation_xyzw']).as_matrix()[:, 2]
+            position = np.array(region['center']) + up * 0.008
+            patch.pose.position.x, patch.pose.position.y, patch.pose.position.z = position.tolist()
+            patch.scale.x, patch.scale.y = region['dimensions'][:2]
+            patch.scale.z = 0.006
+            patch.color.g, patch.color.b, patch.color.a = 1.0, 1.0, 0.75
+            patch.lifetime = Duration(seconds=lifetime).to_msg()
+            markers.markers.append(patch)
     return markers
 
 
@@ -161,6 +177,10 @@ class Perception(Node):
         self.declare_parameter('yolo.iou', 0.5)
         self.declare_parameter('yolo.threads', 2)
         self.declare_parameter('multiview.enabled', True)
+        self.declare_parameter('free_space.enabled', True)
+        self.declare_parameter('sync.queue_size', 8)
+        self.declare_parameter('sync.tf_wait', 0.3)
+        self.declare_parameter('sync.poll_period', 0.02)
         backend = self.get_parameter('segmentation_backend').value
         if backend not in ('yolo', 'geometry'):
             raise ValueError('segmentation_backend must be yolo or geometry')
@@ -184,6 +204,11 @@ class Perception(Node):
             self.declare_parameter('multiview.' + key, value)
             setattr(views, key, self.get_parameter('multiview.' + key).value)
         self.views = ViewAccumulator(views)
+        self.free_settings = FreeSpaceSettings()
+        for key, value in vars(self.free_settings).items():
+            self.declare_parameter('free_space.' + key, value)
+            setattr(self.free_settings, key, self.get_parameter('free_space.' + key).value)
+        self.free_settings.validate()
         self.inference_ms = 0.0
         self.settings = Settings()
         for key, value in vars(self.settings).items():
@@ -201,7 +226,13 @@ class Perception(Node):
         ):
             raise ValueError('max_age and update_period must be positive')
         self.info = None
-        self.pending = None
+        self.captures = CaptureQueue(
+            self.get_parameter('sync.queue_size').value,
+            self.get_parameter('max_age').value,
+            self.get_parameter('sync.tf_wait').value,
+        )
+        self.last_inference = None
+        self.last_publish_wall = 0.0
         self.tf = Buffer()
         self.listener = TransformListener(self.tf, self)
         self.result_pub = self.create_publisher(String, '/perception/detections', 10)
@@ -224,13 +255,18 @@ class Perception(Node):
         )
         self.sync = ApproximateTimeSynchronizer([self.rgb, self.depth], 5, 0.02)
         self.sync.registerCallback(self.capture)
-        self.create_timer(self.get_parameter('update_period').value, self.process)
+        poll_period = self.get_parameter('sync.poll_period').value
+        if not np.isfinite(poll_period) or poll_period <= 0:
+            raise ValueError('sync.poll_period must be positive and finite')
+        self.create_timer(poll_period, self.process)
 
     def calibration(self, info):
         self.info = info
 
     def capture(self, rgb, depth):
-        self.pending = rgb, depth
+        self.captures.push(
+            (rgb, depth), Time.from_msg(depth.header.stamp).nanoseconds / 1e9, time.monotonic()
+        )
 
     def clear(self, status, stamp=None):
         header = PoseArray().header
@@ -238,12 +274,37 @@ class Perception(Node):
         header.stamp = stamp or self.get_clock().now().to_msg()
         self.publish([], header, status)
 
+    def transforms_ready(self, pair, stamp):
+        capture_time = Time.from_msg(pair[1].header.stamp)
+        processing = self.get_parameter('processing_frame').value
+        tracking = self.get_parameter('tracking_frame').value
+        target = self.get_parameter('target_frame').value
+        return all(
+            self.tf.can_transform(to_frame, from_frame, capture_time)
+            for to_frame, from_frame in [
+                (processing, pair[1].header.frame_id),
+                (tracking, processing),
+                (target, tracking),
+            ]
+        )
+
     def process(self):
-        if self.pending is None:
-            self.clear('waiting_for_rgbd')
+        now = self.get_clock().now().nanoseconds / 1e9
+        wall = time.monotonic()
+        period = self.get_parameter('update_period').value
+        if self.last_inference is not None and now < self.last_inference:
+            self.last_inference = None
+            self.tracker.expire(now)
+        due = self.last_inference is None or now - self.last_inference >= period
+        capture = self.captures.select(now, wall, self.transforms_ready, consume=due)
+        if not due:
             return
-        rgb, depth = self.pending
-        self.pending = None
+        if capture is None:
+            if wall - self.last_publish_wall >= self.get_parameter('max_age').value:
+                self.clear('waiting_for_tf' if self.captures.queue else 'waiting_for_rgbd')
+            return
+        rgb, depth = capture.pair
+        self.last_inference = now
         if self.info is None:
             self.clear('waiting_for_calibration', depth.header.stamp)
             return
@@ -268,17 +329,17 @@ class Perception(Node):
             tracking_frame = self.get_parameter('tracking_frame').value
             camera_to_processing = matrix(
                 self.tf.lookup_transform(
-                    processing, depth.header.frame_id, capture_time, timeout=Duration(seconds=0.05)
+                    processing, depth.header.frame_id, capture_time, timeout=Duration(seconds=0.0)
                 )
             )
             processing_to_tracking = matrix(
                 self.tf.lookup_transform(
-                    tracking_frame, processing, capture_time, timeout=Duration(seconds=0.05)
+                    tracking_frame, processing, capture_time, timeout=Duration(seconds=0.0)
                 )
             )
             tracking_to_target = matrix(
                 self.tf.lookup_transform(
-                    target, tracking_frame, capture_time, timeout=Duration(seconds=0.05)
+                    target, tracking_frame, capture_time, timeout=Duration(seconds=0.0)
                 )
             )
             color_image, depth_image = decode(rgb), decode(depth)
@@ -331,6 +392,15 @@ class Perception(Node):
                         data=np.ascontiguousarray(overlay(color_image, instances)).tobytes(),
                     )
                     self.raw_overlay_pub.publish(raw)
+            if self.get_parameter('free_space.enabled').value:
+                scene, _ = backproject(depth_image, color_image, info.k, self.settings)
+                attach_free_space(
+                    tables,
+                    transform_points(scene, processing_to_tracking @ camera_to_processing),
+                    self.free_settings,
+                    self.settings.plane_distance,
+                    self.settings.min_object_height,
+                )
             self.inference_ms = (time.monotonic() - started) * 1000
             tables = self.tracker.update(tables, capture_time.nanoseconds / 1e9)
             if self.get_parameter('multiview.enabled').value:
@@ -362,6 +432,11 @@ class Perception(Node):
                     item['stable'] = False
                     item['stability']['status'] = 'stale'
                     item['stability']['reasons'].append('stale_observation')
+            if table['age_sec'] > self.get_parameter('max_age').value and 'free_space' in table:
+                table['free_regions'] = []
+                table['free_space']['area_m2'] = 0.0
+                table['free_space']['status'] = 'stale_observation'
+        self.last_publish_wall = time.monotonic()
         payload = {
             'status': status,
             'frame_id': header.frame_id,
@@ -370,6 +445,10 @@ class Perception(Node):
             'tracking_frame': self.get_parameter('tracking_frame').value,
             'segmentation_backend': self.get_parameter('segmentation_backend').value,
             'inference_ms': self.inference_ms,
+            'synchronization': {
+                'queued': len(self.captures.queue),
+                'dropped': self.captures.dropped.copy(),
+            },
             'tables': tables,
         }
         self.result_pub.publish(String(data=json.dumps(payload, allow_nan=False)))
