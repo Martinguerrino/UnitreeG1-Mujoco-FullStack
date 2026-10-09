@@ -222,3 +222,58 @@ Cada configuración guarda el último RGB-D y la transformación de cámara en
 un NPZ. Se pueden cambiar `--distances`, `--bearings`, `--frames`, `--seed`,
 `--width`, `--height` y `--output`. Resultados y limitaciones de la ejecución
 local: [validación de percepción](perception_validation_20261007.md).
+
+## Estabilidad temporal de detecciones
+
+Cada mesa y objeto publica `stable` y `stability` en `/perception/detections`.
+RViz muestra `estable` o `inestable` junto al estado de confirmación. Confirmar
+un ID no implica que su pose sea estable.
+
+La validación usa observaciones **sin filtrar en odom**, antes de acumular vistas.
+Por defecto exige tres capturas distintas durante al menos 1 s, en una ventana
+de 2 s. La variación máxima admitida es 2.5 cm en posición (norma del rango XYZ),
+2.5 cm en dimensiones y 12 grados respecto de la primera orientación de la
+ventana, respetando las simetrías del rectángulo. Una interrupción mayor a 0.8 s
+reinicia la historia aunque se conserve el ID. La historia se limita a 64 muestras.
+
+`stability` contiene muestras, duración, variaciones medidas y razones:
+`insufficient_history`, `position_variation`, `dimension_variation`,
+`orientation_variation` o `stale_observation`. Si la edad supera `max_age`, la
+publicación marca el estado `stale` y `stable: false`. Las detecciones ausentes
+siguen sin publicarse; un reinicio del reloj elimina la historia.
+
+Los umbrales se ajustan mediante `tracking.stability_*` en
+`configs/perception.yaml`. Las mesas parcialmente visibles pueden resultar
+inestables al cambiar su contorno observado. Estabilidad temporal no confirma
+la categoría, exactitud, geometría completa ni ausencia de falsos positivos.
+No se generan agarres ni se ejecutan movimientos.
+
+## Panel de percepción en RViz
+
+Con `perception:=true` se agrega **Percepción RGB-D** como panel fuera de la
+vista 3D. La tabla muestra ID, confirmación, estabilidad, edad, dimensiones,
+soporte de profundidad y motivos de inestabilidad. No modifica detecciones.
+Las filas desaparecen al recibir una salida inválida/vacía o tras 2 segundos
+sin mensajes. Una observación de más de 0.5 s se muestra como antigua, aunque
+el último mensaje aún diga estable. La edad visible incorpora el tiempo desde
+que RViz recibió el mensaje; no mide latencia de red previa a esa recepción.
+
+Si está oculto: **Panels → Percepción RGB-D**. Para agregarlo manualmente:
+**Panels → Add New Panel → g1_rviz_plugins/PerceptionPanel**. Comparte paquete
+y compilación con el panel de cámara.
+
+Evaluaciones reproducibles:
+
+```bash
+"$G1_PYTHON" scripts/evaluate_perception_dynamic.py
+source /opt/ros/jazzy/setup.bash
+ROS_DOMAIN_ID=43 RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
+ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST \
+/usr/bin/python3 scripts/check_perception_motion_ros.py
+```
+
+La primera evalúa poses prescritas, pérdidas de vista, movimiento de objetos
+y ángulos de cámara, con referencia de MuJoCo sólo para puntuar. La segunda
+inicia una sesión aislada de marcha física y percepción ROS, sin RViz ni Nav2;
+no ejecutarla junto a otra navegación porque comparten puertos de simulación.
+Resultados y límites: [evaluación dinámica](perception_dynamic_validation_20261009.md).

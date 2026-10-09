@@ -23,4 +23,4 @@ if [[ ! -f /opt/ros/jazzy/setup.bash ]]; then
 fi
 "${APT[@]}" update
 "${APT[@]}" install -y ros-jazzy-desktop ros-jazzy-navigation2 \
-  ros-jazzy-nav2-bringup ros-jazzy-slam-toolbox
+  ros-jazzy-nav2-bringup ros-jazzy-slam-toolbox ros-jazzy-rviz-common ros-jazzy-pluginlib qtbase5-dev

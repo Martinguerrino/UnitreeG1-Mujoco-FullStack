@@ -175,6 +175,13 @@ def prepare(context):
         if display.get('Name') == 'RobotModel':
             display['Enabled'] = display['Value'] = True
             display['Description Topic']['Durability Policy'] = 'Transient Local'
+    rviz_config['Panels'].append({
+        'Class': 'g1_rviz_plugins/CameraPanel', 'Name': 'Cámara RGB-D',
+    })
+    if perception:
+        rviz_config['Panels'].append({
+            'Class': 'g1_rviz_plugins/PerceptionPanel', 'Name': 'Percepción RGB-D',
+        })
     displays.extend([
         {
             'Class': 'rviz_default_plugins/PointCloud2', 'Name': 'MID-360 3D',
@@ -194,8 +201,8 @@ def prepare(context):
         {
             'Class': 'rviz_default_plugins/Image', 'Name': 'D435i Depth',
             'Enabled': True, 'Value': True, 'Normalize Range': True,
-            'Min Value': 0.0, 'Max Value': 10.0,
-            'Topic': {'Value': '/camera/depth/image_rect_raw', 'Depth': 5,
+            'Min Value': 0.0, 'Max Value': 255.0,
+            'Topic': {'Value': '/camera/depth/preview', 'Depth': 5,
                       'Reliability Policy': 'Best Effort',
                       'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
         },

@@ -24,6 +24,7 @@ source /opt/ros/jazzy/setup.bash
 set -u
 
 colcon build \
+  --base-paths src \
   --symlink-install \
   --cmake-clean-cache \
   --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo

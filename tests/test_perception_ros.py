@@ -160,7 +160,11 @@ def test_ros_registered_images_tf_output_and_expiration():
 def test_installed_yolo_ros_masks_classes_depth_and_quality():
     root = Path(__file__).resolve().parents[1]
     checkpoint = root / 'artifacts/perception/g1_objects_yolo11n_seg.onnx'
+    if not checkpoint.is_file():
+        checkpoint = root / 'assets/perception/g1_objects_yolo11n_seg.onnx'
     snapshot = root / 'results/perception/maxwell_evaluation/d0.6_a0.0_ideal.npz'
+    if not snapshot.is_file():
+        snapshot = root / 'results/perception/ros_fixture/d0.6_a0.0_ideal.npz'
     if not checkpoint.is_file() or not snapshot.is_file():
         pytest.skip('Prepared YOLO and held-out Maxwell RGB-D required')
     with np.load(snapshot) as data:

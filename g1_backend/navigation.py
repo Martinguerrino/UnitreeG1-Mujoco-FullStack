@@ -158,6 +158,8 @@ class NavigationTransport(TurnAssist):
                 buffer = io.BytesIO()
                 np.savez_compressed(
                     buffer, time=telemetry.get('sensor_times', {}).get(name, telemetry['sensor_time']),
+                    **({'camera_pitch_deg': sensors['camera_pitch_deg']}
+                       if name.startswith('d435i_') and 'camera_pitch_deg' in sensors else {}),
                     **{name: value}
                 )
                 payload = buffer.getvalue()

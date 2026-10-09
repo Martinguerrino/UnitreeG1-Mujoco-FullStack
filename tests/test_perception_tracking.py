@@ -132,3 +132,55 @@ def test_table_identity_tolerates_partial_footprint_but_not_another_height():
     above['center'][2] += 0.3
     result = tracker.update([above], 1)[0]
     assert result['id'] != initial['id']
+
+
+def test_stability_requires_history_and_ignores_duplicate_capture():
+    tracker = Tracker()
+    for stamp in [0, 0, 0.5]:
+        obj = tracker.update([table([box()])], stamp)[0]['objects'][0]
+        assert not obj['stable']
+    obj = tracker.update([table([box(yaw=0.4 + np.pi)])], 1)[0]['objects'][0]
+    assert obj['stable'] and obj['stability']['samples'] == 3
+    assert obj['stability']['orientation_span_deg'] < 1e-8
+
+
+def test_raw_motion_is_unstable_even_with_heavy_smoothing_and_recovers():
+    tracker = Tracker(TrackingSettings(alpha=0.01))
+    for stamp in [0, 0.5, 1]:
+        obj = tracker.update([table([box()])], stamp)[0]['objects'][0]
+    assert obj['stable']
+    moved = box((0.16, 0.05, 0.8))
+    obj = tracker.update([table([moved])], 1.5)[0]['objects'][0]
+    assert not obj['stable']
+    assert 'position_variation' in obj['stability']['reasons']
+    assert abs(obj['center'][0] - 0.1) < 0.001
+    for stamp in [2, 2.5, 3, 3.5]:
+        obj = tracker.update([table([moved])], stamp)[0]['objects'][0]
+    assert obj['stable']
+
+
+def test_stability_resets_after_gap_and_clock_reset():
+    tracker = Tracker()
+    for stamp in [0, 0.5, 1]:
+        obj = tracker.update([table([box()])], stamp)[0]['objects'][0]
+    identity = obj['id']
+    obj = tracker.update([table([box()])], 2)[0]['objects'][0]
+    assert obj['id'] == identity and not obj['stable']
+    assert obj['stability']['samples'] == 1
+    obj = tracker.update([table([box()])], 0)[0]['objects'][0]
+    assert not obj['stable'] and obj['id'] != identity
+
+
+def test_dimension_and_orientation_variation_reject_stability():
+    for change, reason in [
+        ('dimensions', 'dimension_variation'),
+        ('angle', 'orientation_variation'),
+    ]:
+        tracker = Tracker()
+        for stamp in [0, 0.5]:
+            tracker.update([table([box()])], stamp)
+        observation = box(yaw=0.8 if change == 'angle' else 0.4)
+        if change == 'dimensions':
+            observation['dimensions'][0] += 0.04
+        obj = tracker.update([table([observation])], 1)[0]['objects'][0]
+        assert not obj['stable'] and reason in obj['stability']['reasons']

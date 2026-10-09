@@ -37,6 +37,8 @@ validación: el agarre ACT sigue siendo experimental.
 
 Integración inicial de [Nav2 + SLAM Toolbox](docs/navigation.md):
 `bash scripts/navigation.sh` abre MuJoCo y RViz para seleccionar destinos.
+El panel **Cámara RGB-D** permite inclinar la cámara simulada con un deslizador
+y volver a su posición original con un botón.
 La navegación publica además un MID-360 3D simulado y una D435i RGB-D en tópicos
 ROS estándar, conservando `/scan` como proyección 2D para Nav2.
 También permite elegir FAST-LIO2 o RTAB-Map para generar mapas 3D:
@@ -55,6 +57,7 @@ Percepción con YOLO11n-seg y RGB-D de mesas, cajas, cilindros y esferas:
 orientación en `pelvis`, con visualización en RViz. Uso, salidas y límites en
 [percepción](docs/perception.md).
 Incluye máscaras, seguimiento en `odom`, acumulación de vistas, IDs y etiquetas/ejes en RViz.
+El panel **Percepción RGB-D** muestra estados, dimensiones y motivos de inestabilidad.
 Preparación del modelo y uso: [segmentación YOLO](docs/perception_yolo.md).
 `scripts/evaluate_perception.py` compara estimaciones con la referencia de
 MuJoCo en Maxwell, variando distancia, ángulo y ruido.

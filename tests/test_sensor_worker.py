@@ -104,3 +104,44 @@ def test_spawned_lidar_uses_snapshot_and_capture_time():
         assert frame['scan'][8] == pytest.approx(1.9, abs=1e-5)
     finally:
         worker.close()
+
+
+def test_camera_buttons_change_render_and_reset(monkeypatch):
+    import json
+    import socket
+
+    mujoco = pytest.importorskip('mujoco')
+    monkeypatch.setenv('MUJOCO_GL', 'glfw')
+    source = '''<mujoco><visual><global offwidth="32" offheight="24"/></visual>
+      <worldbody><camera name="d435i" pos="0 0 3"/>
+      <body pos="0 0 0.5"><freejoint/><geom type="sphere" size="0.3" rgba="1 0 0 1"/></body>
+      <geom type="plane" size="3 3 .1"/></worldbody></mujoco>'''
+    config = {'navigation': {'enabled': True}, 'camera': {
+        'enabled': True, 'width': 32, 'height': 24, 'rgb': True, 'depth': True,
+        'backend': 'cpu', 'views': [{'name': 'd435i'}]}}
+    model = mujoco.MjModel.from_xml_string(source)
+    data = mujoco.MjData(model)
+    spec = mujoco.mjtState.mjSTATE_INTEGRATION
+    state = np.empty(mujoco.mj_stateSize(model, spec))
+    mujoco.mj_getState(model, data, state, spec)
+    worker = SensorWorker('camera', config, (source, source), len(state))
+    command = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        frames = []
+        for index, angle in enumerate([0, 25, 0]):
+            command.sendto(json.dumps({'pitch_deg': angle}).encode(), ('127.0.0.1', 19423))
+            worker.submit(float(index), state)
+            deadline = time.monotonic() + 10
+            frame = None
+            while frame is None and time.monotonic() < deadline:
+                frame = worker.receive()
+                time.sleep(.01)
+            assert frame is not None and frame['time'] == index
+            assert frame['sensors']['camera_pitch_deg'] == angle
+            frames.append(frame['sensors'])
+        assert not np.array_equal(frames[0]['d435i_rgb'], frames[1]['d435i_rgb'])
+        np.testing.assert_array_equal(frames[0]['d435i_rgb'], frames[2]['d435i_rgb'])
+        np.testing.assert_array_equal(frames[0]['d435i_depth'], frames[2]['d435i_depth'])
+    finally:
+        command.close()
+        worker.close()

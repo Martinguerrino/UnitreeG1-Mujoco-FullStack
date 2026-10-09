@@ -96,6 +96,9 @@ def test_old_partial_frames_expire():
 def test_rgb_depth_share_optical_frame_stamp_and_calibration():
     bridge = module.Bridge.__new__(module.Bridge)
     bridge.color, bridge.depth, bridge.camera_info = Mock(), Mock(), Mock()
+    bridge.tf = Mock()
+    bridge.depth_preview_pub = Mock()
+    bridge.camera_pitch_state = Mock()
     bridge.publish_sensors(
         {
             'time': np.array(1.25),
@@ -106,9 +109,13 @@ def test_rgb_depth_share_optical_frame_stamp_and_calibration():
     rgb = bridge.color.publish.call_args.args[0]
     depth = bridge.depth.publish.call_args.args[0]
     info = bridge.camera_info.publish.call_args.args[0]
+    preview = bridge.depth_preview_pub.publish.call_args.args[0]
+    assert preview.header == depth.header and preview.encoding == 'rgb8'
+    assert preview.step == depth.width * 3
     assert rgb.header == depth.header == info.header
     assert (rgb.width, rgb.height) == (depth.width, depth.height) == (info.width, info.height)
-    assert info.k[0] == info.k[4] == 240 / (2 * np.tan(np.radians(58) / 2))
+    assert info.k[0] == info.k[4]
+    assert info.k[0] == pytest.approx(240 / (2 * np.tan(np.radians(58) / 2)))
     assert depth.encoding == '32FC1'
 
 
@@ -280,3 +287,49 @@ def test_tracker_compensates_articulated_mount_without_imu():
     pose, covariance, _ = tracker.measurement(result, new_mount, 1.2)
     np.testing.assert_allclose(pose, anchor @ movement, atol=1e-10)
     assert np.linalg.eigvalsh(covariance)[0] > 0
+
+
+def test_rgbd_transform_uses_capture_angle_and_stamp():
+    from scipy.spatial.transform import Rotation
+    bridge = module.Bridge.__new__(module.Bridge)
+    bridge.color, bridge.depth, bridge.camera_info, bridge.tf = Mock(), Mock(), Mock(), Mock()
+    bridge.camera_pitch_state = Mock()
+    bridge.publish_sensors({
+        'time': np.array(2.5), 'camera_pitch_deg': np.array(25),
+        'd435i_rgb': np.zeros((24, 32, 3), np.uint8),
+    })
+    transform = bridge.tf.sendTransform.call_args.args[0]
+    image = bridge.color.publish.call_args.args[0]
+    assert transform.header.stamp == image.header.stamp
+    assert transform.header.frame_id == 'd435_link'
+    assert transform.child_frame_id == image.header.frame_id
+    q = transform.transform.rotation
+    actual = Rotation.from_quat([q.x, q.y, q.z, q.w])
+    expected = Rotation.from_quat([-.5, .5, -.5, .5]) * Rotation.from_euler('x', -25, degrees=True)
+    np.testing.assert_allclose(actual.as_matrix(), expected.as_matrix(), atol=1e-12)
+
+
+def test_camera_panel_command_relay_clamps_and_ignores_invalid_values(monkeypatch):
+    import json
+    from std_msgs.msg import Float64
+
+    spec = importlib.util.spec_from_file_location(
+        'camera_controls', Path(__file__).resolve().parents[1] / 'scripts/navigation_camera_controls.py'
+    )
+    controls_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(controls_module)
+    transport = Mock()
+    monkeypatch.setattr(controls_module.socket, 'socket', Mock(return_value=transport))
+    node = Mock()
+    controls = controls_module.CameraControls(node)
+    node.create_subscription.assert_called_once()
+    controls.command(Float64(data=25.0))
+    payload, destination = transport.sendto.call_args.args
+    assert json.loads(payload)['pitch_deg'] == 25
+    assert destination == ('127.0.0.1', 19423)
+    controls.command(Float64(data=100.0))
+    assert controls.pitch == 45
+    controls.command(Float64(data=float('nan')))
+    assert controls.pitch == 45
+    controls.command(Float64(data=0.0))
+    assert json.loads(transport.sendto.call_args.args[0])['pitch_deg'] == 0

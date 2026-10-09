@@ -4,7 +4,7 @@ project(g1_mujoco)
 find_package(ament_cmake REQUIRED)
 
 install(
-  DIRECTORY launch mjcf scenes
+  DIRECTORY mjcf scenes
   DESTINATION share/${PROJECT_NAME}
   PATTERN "__pycache__" EXCLUDE
   PATTERN "*.pyc" EXCLUDE

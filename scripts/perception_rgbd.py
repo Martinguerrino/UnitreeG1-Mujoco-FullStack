@@ -114,6 +114,7 @@ def visualization(tables, header, now, lifetime):
                 f'{name} {item["id"]}\n'
                 f'{dimensions} m | edad {age:.2f} s\n'
                 f'{"confirmada" if item["confirmed"] else "provisional"}'
+                f' | {"estable" if item.get("stable", False) else "inestable"}'
             )
             if item.get('yaw_ambiguous'):
                 label.text += ' | orientacion ambigua'
@@ -357,6 +358,10 @@ class Perception(Node):
         for table in tables:
             for item in [table, *table['objects']]:
                 item['age_sec'] = max(0.0, now - item['last_seen'])
+                if item['age_sec'] > self.get_parameter('max_age').value and 'stability' in item:
+                    item['stable'] = False
+                    item['stability']['status'] = 'stale'
+                    item['stability']['reasons'].append('stale_observation')
         payload = {
             'status': status,
             'frame_id': header.frame_id,

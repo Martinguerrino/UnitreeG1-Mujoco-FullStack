@@ -1,0 +1,8 @@
+<library path="g1_camera_panel">
+  <class name="g1_rviz_plugins/CameraPanel" type="g1_rviz_plugins::CameraPanel" base_class_type="rviz_common::Panel">
+    <description>Slider and reset button for the simulated RGB-D camera.</description>
+  </class>
+  <class name="g1_rviz_plugins/PerceptionPanel" type="g1_rviz_plugins::PerceptionPanel" base_class_type="rviz_common::Panel">
+    <description>Objects, tracking, stability and reasons from RGB-D perception.</description>
+  </class>
+</library>

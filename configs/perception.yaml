@@ -32,6 +32,14 @@ g1_perception:
     tracking.timeout: 2.0
     tracking.alpha: 0.35
     tracking.confirmation_hits: 2
+    # Stability is measured on raw observations in odom, before smoothing.
+    tracking.stability_window: 2.0
+    tracking.stability_min_duration: 1.0
+    tracking.stability_min_samples: 3
+    tracking.stability_max_gap: 0.8
+    tracking.stability_position: 0.025
+    tracking.stability_dimensions: 0.025
+    tracking.stability_angle_deg: 12.0
     update_period: 0.5
     max_age: 0.5
     stride: 2

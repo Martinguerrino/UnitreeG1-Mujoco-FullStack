@@ -45,6 +45,13 @@ class TrackingSettings:
     timeout: float = 2.0
     alpha: float = 0.35
     confirmation_hits: int = 2
+    stability_window: float = 2.0
+    stability_min_duration: float = 1.0
+    stability_min_samples: int = 3
+    stability_max_gap: float = 0.8
+    stability_position: float = 0.025
+    stability_dimensions: float = 0.025
+    stability_angle_deg: float = 12.0
 
     def validate(self):
         if not np.isfinite(
@@ -53,6 +60,18 @@ class TrackingSettings:
             raise ValueError('Tracking settings must be finite')
         if min(self.match_distance, self.dimension_gate, self.timeout) <= 0:
             raise ValueError('Tracking gates and timeout must be positive')
+        limits = [
+            self.stability_window,
+            self.stability_min_duration,
+            self.stability_max_gap,
+            self.stability_position,
+            self.stability_dimensions,
+            self.stability_angle_deg,
+        ]
+        if not np.isfinite(limits).all() or min(limits) <= 0:
+            raise ValueError('Stability limits must be finite and positive')
+        if self.stability_min_samples < 2 or self.stability_min_duration > self.stability_window:
+            raise ValueError('Stability requires at least two samples and duration within window')
         if not 0 < self.alpha <= 1 or self.confirmation_hits < 1:
             raise ValueError('Tracking alpha must be in (0, 1] and confirmation_hits positive')
 
@@ -188,8 +207,65 @@ class Tracker:
                 observed=True,
                 raw_pose=raw_pose,
             )
+            self._stability(track, raw_pose, stamp, item)
             results.append(item)
         return results
+
+    def _stability(self, track, raw, stamp, item):
+        settings = self.settings
+        history = track.setdefault('stability_history', [])
+        if history and stamp - history[-1][0] > settings.stability_max_gap:
+            history.clear()
+        # Repeated timestamps must not count as additional observations.
+        if not history or stamp > history[-1][0]:
+            history.append((stamp, deepcopy(raw)))
+        history[:] = [entry for entry in history if stamp - entry[0] <= settings.stability_window][
+            -64:
+        ]
+        poses = [entry[1] for entry in history]
+        position = float(np.linalg.norm(np.ptp([pose['center'] for pose in poses], axis=0)))
+        dimensions = float(np.max(np.ptp([pose['dimensions'] for pose in poses], axis=0)))
+        ambiguous = item.get('yaw_ambiguous', False)
+        if item['kind'] == 'table_surface':
+            ambiguous = item['dimensions'][0] / item['dimensions'][1] < 1.15
+        reference = Rotation.from_quat(poses[0]['orientation_xyzw'])
+        angles = [
+            float(
+                np.degrees(
+                    (
+                        reference.inv()
+                        * equivalent_orientation(
+                            poses[0]['orientation_xyzw'], pose['orientation_xyzw'], ambiguous
+                        )
+                    ).magnitude()
+                )
+            )
+            for pose in poses
+        ]
+        angle = max(angles)
+        duration = stamp - history[0][0]
+        reasons = []
+        if (
+            len(history) < settings.stability_min_samples
+            or duration < settings.stability_min_duration
+        ):
+            reasons.append('insufficient_history')
+        if position > settings.stability_position:
+            reasons.append('position_variation')
+        if dimensions > settings.stability_dimensions:
+            reasons.append('dimension_variation')
+        if angle > settings.stability_angle_deg:
+            reasons.append('orientation_variation')
+        item['stable'] = not reasons
+        item['stability'] = {
+            'status': 'stable' if not reasons else 'unstable',
+            'reasons': reasons,
+            'samples': len(history),
+            'duration_sec': duration,
+            'position_span_m': position,
+            'dimension_span_m': dimensions,
+            'orientation_span_deg': angle,
+        }
 
     def update(self, tables, stamp):
         if not np.isfinite(stamp):

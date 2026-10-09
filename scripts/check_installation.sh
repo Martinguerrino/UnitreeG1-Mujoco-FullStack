@@ -42,5 +42,5 @@ if [[ "${G1_REQUIRE_SLAM3D:-false}" == true ]]; then
   [[ -x "$ROOT_DIR/artifacts/slam/bin/g1_cloud_mesh" ]]
 fi
 if [[ "${G1_REQUIRE_BUILD:-false}" == true ]]; then
-  for package in g1_bringup g1_manipulation g1_mujoco; do ros2 pkg prefix "$package" >/dev/null; done
+  for package in g1_bringup g1_manipulation g1_mujoco g1_rviz_plugins; do ros2 pkg prefix "$package" >/dev/null; done
 fi

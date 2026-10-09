@@ -965,3 +965,46 @@ ROS_DOMAIN_ID=43 /usr/bin/python3 scripts/check_navigation_feet.py --drive \
 La referencia perfecta se utiliza únicamente en este comprobador para medir
 error. El resultado comprueba que hay apoyos válidos, actualizaciones fusionadas
 y desplazamiento, no que la opción supere al SLAM nativo.
+
+## Inclinar la cámara RGB-D en RViz (simulación)
+
+El lanzamiento normal agrega el panel **Cámara RGB-D**, fuera de la vista 3D.
+Mové el deslizador hacia **Arriba** o **Abajo**, o ingresá el ángulo en grados.
+El botón **Volver a posición original** restaura exactamente la orientación
+configurada al arrancar (0° de desplazamiento adicional). El rango es de -30°
+a +45°; positivo significa mirar hacia abajo. No requiere la herramienta Interact.
+El panel muestra el ángulo observado en la última imagen y avisa si dejan de
+llegar imágenes recientes. No guarda ni aplica un ángulo al abrir RViz.
+
+Si el panel está oculto, activalo desde **Panels → Cámara RGB-D**. También se
+puede agregar con **Panels → Add New Panel → g1_rviz_plugins/CameraPanel**.
+Para compilarlo después de actualizar el repositorio:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+colcon build --base-paths src --packages-select g1_rviz_plugins --symlink-install
+```
+
+`setup.sh` lo compila junto a los demás paquetes. Reiniciar el lanzamiento
+carga el plugin desde `install/setup.bash`. Las esferas se reemplazaron por este
+panel. El panel publica `/camera/pitch_command` (`std_msgs/Float64`); el puente
+reenvía la consigna al sensor y publica `/camera/pitch_state` desde las imágenes.
+
+RGB y profundidad usan el mismo ángulo. Cada imagen transporta el ángulo de su
+captura y el puente publica TF dinámico de `d435_link` al frame óptico con ese
+mismo timestamp. No se modifica el cuello, el torso ni el LiDAR. Es un soporte
+móvil virtual: no representa una articulación del G1 físico. Cambiar de vista
+puede hacer que la percepción pierda temporalmente un objeto o su estabilidad.
+La odometría RGB-D también puede perder seguimiento durante cambios bruscos;
+para explorar ángulos conviene mantener el robot detenido y usar odometría
+independiente de la cámara.
+
+### Vista de profundidad
+
+**D435i Depth** muestra ahora `/camera/depth/preview`: una imagen RGB de
+profundidad con escala fija de **0.2 a 6 m**, de azul (cerca) a rojo (lejos).
+El violeta indica profundidad inválida o fuera de ese rango. La leyenda incluye
+el porcentaje sin lectura; un fondo lejano no cambia el contraste de los
+objetos cercanos. El tópico métrico `/camera/depth/image_rect_raw` permanece en
+`32FC1` y sigue siendo la entrada de percepción/odometría. La vista previa no
+inventa mediciones cuando la cámara apunta fuera del alcance o hacia el robot.

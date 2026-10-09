@@ -5,6 +5,8 @@ import multiprocessing as mp
 import os
 import pickle
 import signal
+import socket
+import json
 import tempfile
 import traceback
 from pathlib import Path
@@ -56,6 +58,7 @@ def _run_sensor(kind, config, sources, backend, states, frames, stop, status):
     # The parent owns shutdown through the stop event.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     renderer = None
+    control_socket = None
     try:
         # Set before importing MuJoCo: GL backend selection is process-local.
         if backend:
@@ -91,6 +94,14 @@ def _run_sensor(kind, config, sources, backend, states, frames, stop, status):
         spec = mujoco.mjtState.mjSTATE_INTEGRATION
         if kind == 'camera':
             camera = config['camera']
+            from .camera_control import camera_pitch, tilted_quaternion
+            pitch = 0.0
+            camera_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, 'd435i')
+            if config.get('navigation') and camera_id >= 0:
+                control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                control_socket.bind(('127.0.0.1', 19423))
+                control_socket.setblocking(False)
+                original_quaternion = model.cam_quat[camera_id].copy()
             views = camera.get('views') or [{'name': 'policy_camera'}]
             renderer = mujoco.Renderer(model, camera['height'], camera['width'])
             mujoco.mj_forward(model, data)
@@ -121,6 +132,17 @@ def _run_sensor(kind, config, sources, backend, states, frames, stop, status):
                 stop.wait(0.002)
                 continue
             captured, state = snapshot
+            if control_socket is not None:
+                for _ in range(100):
+                    try:
+                        payload, _ = control_socket.recvfrom(1024)
+                    except BlockingIOError:
+                        break
+                    try:
+                        pitch = camera_pitch(json.loads(payload)['pitch_deg'])
+                    except (ValueError, TypeError, KeyError):
+                        continue
+                model.cam_quat[camera_id] = tilted_quaternion(original_quaternion, pitch)
             mujoco.mj_setState(model, data, state, spec)
             mujoco.mj_forward(model, data)
             result = {'time': captured, 'sensors': {}}
@@ -144,12 +166,16 @@ def _run_sensor(kind, config, sources, backend, states, frames, stop, status):
                     result['sensors']['mid360_points'] = points
                 else:
                     result['scan'] = laser_scan(model, data)
+            if control_socket is not None:
+                result['sensors']['camera_pitch_deg'] = np.array(pitch)
             if kind == 'camera' and effects is not None:
                 result['sensors'] = effects.camera(result['sensors'])
             frames.put(result)
     except BaseException:  # noqa: BLE001 - report child failures to the parent
         status.send({'error': traceback.format_exc()})
     finally:
+        if control_socket is not None:
+            control_socket.close()
         if renderer is not None:
             renderer.close()
         status.close()

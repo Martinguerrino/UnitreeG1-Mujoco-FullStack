@@ -6,6 +6,10 @@ import math
 import socket
 import struct
 import time
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np
 import rclpy
@@ -15,7 +19,7 @@ from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException
 from rclpy.qos import qos_profile_sensor_data
 from rosgraph_msgs.msg import Clock
-from std_msgs.msg import String
+from std_msgs.msg import Float64, String
 from sensor_msgs.msg import CameraInfo, Image, Imu, JointState, LaserScan, PointCloud2, PointField
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 
@@ -53,7 +57,9 @@ class Bridge(Node):
             self.scan = self.create_publisher(LaserScan, '/scan', 10)
         self.points = self.create_publisher(PointCloud2, '/mid360/points', qos_profile_sensor_data)
         self.color = self.create_publisher(Image, '/camera/color/image_raw', qos_profile_sensor_data)
+        self.depth_preview_pub = self.create_publisher(Image, '/camera/depth/preview', qos_profile_sensor_data)
         self.depth = self.create_publisher(Image, '/camera/depth/image_rect_raw', qos_profile_sensor_data)
+        self.camera_pitch_state = self.create_publisher(Float64, '/camera/pitch_state', 10)
         self.camera_info = self.create_publisher(CameraInfo, '/camera/color/camera_info', 10)
         self.joint_states = self.create_publisher(JointState, '/joint_states', 10)
         self.tf = TransformBroadcaster(self)
@@ -63,10 +69,6 @@ class Bridge(Node):
             ('base_link', 'laser', (0.0, 0.0, 0.78), (1.0, 0.0, 0.0, 0.0)),
             ('torso_link', 'torso_imu', (-0.03959, -0.00224, 0.11892),
              (1.0, 0.0, 0.0, 0.0)),
-            ('d435_link', 'd435i_color_optical_frame', (0.0, 0.0, 0.0),
-             # ROS optical axes: right, down, forward. MuJoCo cameras use
-             # right, up, backward, so their last two axes must be flipped.
-             (0.5, -0.5, 0.5, -0.5)),
         ):
             sensor = TransformStamped()
             sensor.header.frame_id = parent
@@ -78,6 +80,8 @@ class Bridge(Node):
              sensor.transform.rotation.y, sensor.transform.rotation.z) = quaternion
             transforms.append(sensor)
         self.static_tf.sendTransform(transforms)
+        from navigation_camera_controls import CameraControls
+        self.camera_controls = CameraControls(self)
         self.create_subscription(Twist, '/cmd_vel', self.command, 10)
         self.create_timer(0.005, self.poll)
         self.last_scan = None
@@ -236,6 +240,20 @@ class Bridge(Node):
 
     def publish_sensors(self, values):
         timestamp = stamp(float(values['time']))
+        if 'd435i_rgb' in values or 'd435i_depth' in values:
+            # Capture-specific angle travels in the same packet as each image.
+            angle = math.radians(float(values.get('camera_pitch_deg', 0.0))) / 2
+            c, s = math.cos(angle), -math.sin(angle)
+            # Original optical transform wxyz=(.5,-.5,.5,-.5).
+            optical = TransformStamped()
+            optical.header.stamp = timestamp
+            optical.header.frame_id = 'd435_link'
+            optical.child_frame_id = 'd435i_color_optical_frame'
+            optical.transform.rotation.w = .5*c + .5*s
+            optical.transform.rotation.x = .5*s - .5*c
+            optical.transform.rotation.y = .5*c - .5*s
+            optical.transform.rotation.z = -.5*c - .5*s
+            self.tf.sendTransform(optical)
         if 'mid360_points' in values:
             xyz = np.ascontiguousarray(values['mid360_points'], dtype=np.float32)
             cloud = PointCloud2()
@@ -270,6 +288,7 @@ class Bridge(Node):
             image.data = rgb.tobytes()
             self.color.publish(image)
             self.publish_camera_info(timestamp, image.width, image.height)
+            self.camera_pitch_state.publish(Float64(data=float(values.get('camera_pitch_deg', 0.0))))
         if 'd435i_depth' in values:
             depth = np.ascontiguousarray(values['d435i_depth'], dtype=np.float32)
             image = Image()
@@ -281,6 +300,16 @@ class Bridge(Node):
             image.step = image.width * 4
             image.data = depth.tobytes()
             self.depth.publish(image)
+            # Fixed color scale avoids far-clip/background dominating RViz normalization.
+            from g1_backend.depth_preview import depth_preview
+            preview = depth_preview(depth)
+            shown = Image()
+            shown.header = image.header
+            shown.height, shown.width = depth.shape
+            shown.encoding = 'rgb8'
+            shown.step = shown.width * 3
+            shown.data = preview.tobytes()
+            self.depth_preview_pub.publish(shown)
 
     def publish_camera_info(self, timestamp, width, height):
         fy = height / (2 * math.tan(math.radians(58) / 2))
@@ -314,10 +343,11 @@ def main():
             node.socket.sendto(json.dumps({'velocity': [0, 0, 0]}).encode(), ('127.0.0.1', 19421))
             node.socket.close()
             node.sensor_socket.close()
+            node.camera_controls.socket.close()
         finally:
             if rclpy.ok():
                 node.destroy_node()
-                rclpy.shutdown()
+                rclpy.try_shutdown()
 
 
 if __name__ == '__main__':

@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>g1_rviz_plugins</name>
+  <version>0.1.0</version>
+  <description>RViz controls for the G1 simulated RGB-D camera.</description>
+  <maintainer email="maintainer@example.com">G1 Locomanipulation Maintainer</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>rviz_common</depend>
+  <depend>std_msgs</depend>
+  <depend>qtbase5-dev</depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>
