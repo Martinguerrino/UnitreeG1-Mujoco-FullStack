@@ -23,6 +23,11 @@ class SensorEffects:
         return (points[valid] * (measured[valid] / ranges[valid])[:, None]).astype(np.float32)
 
     def camera(self, sensors):
+        from .cuda.sensors import camera
+
+        accelerated = camera(self, sensors)
+        if accelerated is not None:
+            return accelerated
         cfg = self.profile['camera']
         output = dict(sensors)
         for name, image in sensors.items():

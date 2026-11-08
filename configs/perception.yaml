@@ -59,6 +59,7 @@ g1_perception:
     sync.tf_wait: 0.3
     sync.poll_period: 0.02
     update_period: 0.5
+    gpu.update_period: 0.2
     max_age: 0.5
     stride: 2
     min_depth: 0.2

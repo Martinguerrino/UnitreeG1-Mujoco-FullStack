@@ -15,6 +15,20 @@ def runtime_path():
     path = ROOT / 'artifacts/dds_runtime'
     if path.is_dir() and str(path) not in sys.path:
         sys.path.insert(0, str(path))
+    optional = os.environ.get('G1_GPU_PYTHON_PATH')
+    if not optional:
+        from .acceleration import enabled
+        from importlib.metadata import distribution, PackageNotFoundError
+
+        if enabled():
+            try:
+                optional = str(distribution('onnxruntime-gpu').locate_file(''))
+            except PackageNotFoundError:
+                pass
+    if optional and Path(optional).is_dir():
+        if optional in sys.path:
+            sys.path.remove(optional)
+        sys.path.insert(0, optional)
 
 
 def finite(value, name, minimum=None):

@@ -33,7 +33,11 @@ class VoxelMap:
         xyz = np.asarray(xyz, dtype=np.float32)
         xyz = xyz[np.isfinite(xyz).all(axis=1)]
         keys = np.floor(xyz / self.resolution).astype(np.int64)
-        _, indices = np.unique(keys, axis=0, return_index=True)
+        from .cuda.geometry import voxel_indices
+
+        indices = voxel_indices(xyz, self.resolution)
+        if indices is None:
+            _, indices = np.unique(keys, axis=0, return_index=True)
         for index in indices:
             key = tuple(keys[index])
             if key in self.cells or len(self.cells) < self.maximum:

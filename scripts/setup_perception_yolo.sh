@@ -7,7 +7,9 @@ PERCEPTION_PYTHON="${PERCEPTION_PYTHON:-$G1_PYTHON}"
   --no-deps -r "$ROOT_DIR/requirements-perception.txt"
 if [[ "${1:-}" == --train ]]; then
   shift
-  "$PERCEPTION_PYTHON" -m pip install torch==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cpu
+  if ! PYTHONPATH="$ROOT_DIR:${PYTHONPATH:-}" "$PERCEPTION_PYTHON" -c     'import torch; raise SystemExit(torch.version.cuda is None)'; then
+    "$PERCEPTION_PYTHON" -m pip install torch==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cpu
+  fi
   "$PERCEPTION_PYTHON" "$ROOT_DIR/scripts/train_perception_yolo.py" "$@"
 elif (($#)); then
   echo 'Uso: setup_perception_yolo.sh [--train [opciones de entrenamiento]]' >&2

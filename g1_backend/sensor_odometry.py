@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.spatial import cKDTree
+from .cuda.neighbors import NeighborIndex
 from scipy.spatial.transform import Rotation
 
 
@@ -48,7 +48,7 @@ class Registration:
 class CloudReference:
     def __init__(self, points, colors=None):
         self.points, self.colors = reduce_cloud(points, colors)
-        self.tree = cKDTree(self.points)
+        self.tree = NeighborIndex(self.points)
         if len(self.points) < 60:
             self.normals = np.zeros_like(self.points)
             self.planar = np.zeros(len(self.points), dtype=bool)

@@ -1,4 +1,4 @@
-"""Local YOLO11 segmentation inference through CPU ONNX; no runtime downloads."""
+"""Local YOLO11 segmentation inference through optional CUDA ONNX; no runtime downloads."""
 
 import ast
 from dataclasses import dataclass
@@ -127,9 +127,9 @@ class YoloSegmenter:
         options = ort.SessionOptions()
         options.intra_op_num_threads = threads
         options.inter_op_num_threads = 1
-        self.session = ort.InferenceSession(
-            str(path), sess_options=options, providers=['CPUExecutionProvider']
-        )
+        from .acceleration import OnnxSession
+
+        self.session = OnnxSession(ort, str(path), options)
         self.input = self.session.get_inputs()[0]
         self.input_shape = tuple(self.input.shape[2:])
         if len(self.input.shape) != 4 or any(
@@ -149,10 +149,28 @@ class YoloSegmenter:
             )
         self.confidence, self.iou = confidence, iou
         self.deduplicate = deduplicate
+        self.cuda_pipeline = None
 
     def predict(self, rgb):
         if rgb.ndim != 3 or rgb.shape[2] != 3 or rgb.dtype != np.uint8:
             raise ValueError('YOLO input must be RGB uint8')
+        from .acceleration import enabled, cupy, disable
+
+        if not enabled():
+            self.cuda_pipeline = None
+        if self.session.backend == 'cuda' and enabled():
+            cp = cupy()
+            if cp is not None:
+                try:
+                    if self.cuda_pipeline is None:
+                        from .cuda.yolo import YoloPipeline
+                        self.cuda_pipeline = YoloPipeline(self, cp)
+                    instances = self.cuda_pipeline.predict(rgb)
+                    return suppress_contained_masks(instances) if self.deduplicate else instances
+                except Exception as error:  # noqa: BLE001 - retry optional backend on CPU
+                    disable('yolo', error)
+                    self.cuda_pipeline = None
+                    self.session._cpu()
         ih, iw = self.input_shape
         height, width = rgb.shape[:2]
         ratio = min(iw / width, ih / height)
@@ -185,9 +203,15 @@ def overlay(rgb, instances):
         'cylinder': (255, 180, 0),
         'sphere': (50, 100, 255),
     }
+    from .cuda.images import overlay as gpu_overlay
+
+    accelerated = gpu_overlay(rgb, instances, colors)
+    if accelerated is not None:
+        result = accelerated
     for instance in instances:
         color = np.array(colors.get(instance.label, (200, 200, 200)), dtype=np.uint8)
-        result[instance.mask] = (0.55 * result[instance.mask] + 0.45 * color).astype(np.uint8)
+        if accelerated is None:
+            result[instance.mask] = (0.55 * result[instance.mask] + 0.45 * color).astype(np.uint8)
         x0, y0, x1, y1 = instance.box_xyxy
         cv2.rectangle(result, (x0, y0), (x1, y1), tuple(int(x) for x in color), 1)
         cv2.putText(

@@ -27,11 +27,13 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from g1_backend.navigation_control import merge_parameters
 from g1_backend.python_runtime import resolve_python
+from g1_backend.gpu_launch import gpu_process_environment
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def prepare(context):
+    gpu_env = gpu_process_environment(LaunchConfiguration('sim_python').perform(context))
     ideal = LaunchConfiguration('ideal').perform(context) == 'true'
     perception = LaunchConfiguration('perception').perform(context) == 'true'
     if ideal and perception:
@@ -299,11 +301,12 @@ def prepare(context):
              '--initial-yaw', LaunchConfiguration('initial_yaw'),
              '--scene', LaunchConfiguration('scene'),
              '--dexterity', LaunchConfiguration('dexterity')],
-        output='screen',
+        output='screen', additional_env=gpu_env,
     )
     bridge = ExecuteProcess(
         cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_bridge.py'),
-             '--ros-args', '-p', 'real_odom:=' + str(real_odom).lower()], output='screen'
+             '--ros-args', '-p', 'real_odom:=' + str(real_odom).lower()], output='screen',
+        additional_env=gpu_env
     )
     actions = [
         bridge,
@@ -315,7 +318,7 @@ def prepare(context):
         actions.append(ExecuteProcess(
             cmd=['/usr/bin/python3', str(ROOT / 'scripts/perception_rgbd.py'),
                  '--ros-args', '--params-file', str(ROOT / 'configs/perception.yaml')],
-            output='screen',
+            output='screen', additional_env=gpu_env,
         ))
     if LaunchConfiguration('nav2').perform(context) == 'true':
         actions.append(ExecuteProcess(
@@ -325,6 +328,7 @@ def prepare(context):
     if real_odom and not sensor_slam:
         estimator = ExecuteProcess(
             cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_odometry.py')],
+            additional_env=gpu_env,
             output='screen',
         )
         actions.append(estimator)
@@ -362,7 +366,7 @@ def prepare(context):
                 cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_lidar_map.py'),
                      '--ros-args', '-p', 'use_sim_time:=true',
                      '-p', 'output_dir:=' + str(slam_output)], output='screen',
-                additional_env={'OMP_NUM_THREADS': '1'},
+                additional_env={**gpu_env, 'OMP_NUM_THREADS': '1'},
             )
             actions.extend([mapping, graph_map])
             for essential in (engine, graph_map):
@@ -381,7 +385,7 @@ def prepare(context):
                      *(['-p', 'saved_mesh:=' + str(slam_output / 'map_mesh.ply')]
                        if mode == 'localization' and (slam_output / 'map_mesh.ply').is_file() else []),
                      '-p', 'output_dir:=' + str(slam_output)], output='screen',
-                additional_env={'OMP_NUM_THREADS': '1'},
+                additional_env={**gpu_env, 'OMP_NUM_THREADS': '1'},
             ))
             rgbd_topics = [
                 ('rgb/image', '/camera/color/image_raw'),

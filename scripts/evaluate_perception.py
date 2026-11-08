@@ -7,8 +7,9 @@ from pathlib import Path
 import sys
 import tempfile
 
-# Configure software EGL before MuJoCo is imported, matching the renderer check.
-from check_perception_render import initialize_renderer
+# Configure optional GPU/software EGL before MuJoCo is imported.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from g1_backend.cuda.rendering import initialize_renderer
 import mujoco
 import numpy as np
 from scipy.spatial.transform import Rotation

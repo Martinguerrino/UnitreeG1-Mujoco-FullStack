@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 import sys
 
-from check_perception_render import initialize_renderer
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from g1_backend.cuda.rendering import initialize_renderer
 import cv2
 import mujoco
 import numpy as np
@@ -229,29 +230,33 @@ def main():
     from ultralytics import YOLO
 
     pretrained = output / 'yolo11n-seg.pt'
-    model = YOLO(str(pretrained))
-    model.train(
-        data=str(dataset / 'dataset.yaml'),
-        epochs=args.epochs,
-        imgsz=416,
-        batch=8,
-        device='cpu',
-        workers=0,
-        seed=args.seed,
-        deterministic=True,
-        project=str(output / 'training'),
-        name='synthetic',
-        exist_ok=True,
-        plots=False,
-        cache=True,
-        amp=False,
-        patience=12,
-        close_mosaic=5,
-        mosaic=0.3,
-        scale=0.3,
-        translate=0.05,
-        degrees=10,
-        fliplr=0.5,
+    from g1_backend.cuda.training import train_yolo
+
+    _, device = train_yolo(
+        YOLO,
+        pretrained,
+        {
+            'data': str(dataset / 'dataset.yaml'),
+            'epochs': args.epochs,
+            'imgsz': 416,
+            'batch': 8,
+            'workers': 0,
+            'seed': args.seed,
+            'deterministic': True,
+            'project': str(output / 'training'),
+            'name': 'synthetic',
+            'exist_ok': True,
+            'plots': False,
+            'cache': True,
+            'amp': False,
+            'patience': 12,
+            'close_mosaic': 5,
+            'mosaic': 0.3,
+            'scale': 0.3,
+            'translate': 0.05,
+            'degrees': 10,
+            'fliplr': 0.5,
+        },
     )
     best = output / 'training/synthetic/weights/best.pt'
     import shutil
@@ -274,6 +279,7 @@ def main():
         'seed': args.seed,
         'ultralytics': __import__('ultralytics').__version__,
         'torch': torch.__version__,
+        'device': device,
         'domain': 'synthetic objects; no hardware validation',
     }
     (output / 'model_manifest.json').write_text(json.dumps(manifest, indent=2))

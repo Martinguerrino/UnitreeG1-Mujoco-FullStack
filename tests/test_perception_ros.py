@@ -350,3 +350,55 @@ def test_delayed_tf_keeps_capture_and_uses_ready_older_pair_without_latest_tf_fa
     finally:
         detector.destroy_node()
         rclpy.shutdown()
+
+
+def test_rgbd_reception_continues_while_processing_callback_is_busy():
+    import threading
+    from rclpy.executors import MultiThreadedExecutor
+
+    rclpy.init()
+    detector = module.Perception(
+        parameter_overrides=[Parameter('segmentation_backend', value='geometry')]
+    )
+    source = Node('perception_busy_test_source')
+    executor = MultiThreadedExecutor(num_threads=2)
+    executor.add_node(detector)
+    executor.add_node(source)
+    busy, release = threading.Event(), threading.Event()
+
+    def heavy_callback():
+        busy.set()
+        release.wait(3)
+
+    timer = detector.create_timer(0.001, heavy_callback)
+    worker = threading.Thread(target=executor.spin)
+    rgb_pub = source.create_publisher(Image, '/camera/color/image_raw', 10)
+    depth_pub = source.create_publisher(Image, '/camera/depth/image_rect_raw', 10)
+    worker.start()
+    try:
+        assert busy.wait(3)
+        deadline = time.monotonic() + 2
+        received = False
+        while time.monotonic() < deadline:
+            stamp = source.get_clock().now().to_msg()
+            rgb = Image(height=2, width=2, encoding='rgb8', step=6, data=bytes(12))
+            rgb.header.stamp = stamp
+            depth = Image(height=2, width=2, encoding='32FC1', step=8, data=bytes(16))
+            depth.header.stamp = stamp
+            rgb_pub.publish(rgb)
+            depth_pub.publish(depth)
+            time.sleep(0.02)
+            with detector.capture_lock:
+                received = bool(detector.captures.queue)
+            if received:
+                break
+        assert received, 'RGB-D reception was blocked by processing'
+        assert not release.is_set()
+    finally:
+        timer.cancel()
+        release.set()
+        executor.shutdown(timeout_sec=3)
+        worker.join(timeout=3)
+        detector.destroy_node()
+        source.destroy_node()
+        rclpy.shutdown()

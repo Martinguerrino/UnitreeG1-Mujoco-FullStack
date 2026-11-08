@@ -81,9 +81,13 @@ class ViewAccumulator:
                 retained = [view for view in views if stamp - view['stamp'] <= s.max_age]
                 views.clear()
                 views.extend(retained)
-                _, keep = np.unique(
-                    np.floor(points / s.voxel_size).astype(np.int64), axis=0, return_index=True
-                )
+                from .cuda.geometry import voxel_indices
+
+                keep = voxel_indices(points, s.voxel_size)
+                if keep is None:
+                    _, keep = np.unique(
+                        np.floor(points / s.voxel_size).astype(np.int64), axis=0, return_index=True
+                    )
                 points = points[keep]
                 if len(points) > s.max_points:
                     points = points[np.linspace(0, len(points) - 1, s.max_points, dtype=int)]

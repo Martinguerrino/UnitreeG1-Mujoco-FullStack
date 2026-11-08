@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sys
 import time
+import threading
 
 import numpy as np
 import rclpy
@@ -12,6 +13,8 @@ from geometry_msgs.msg import Point, Pose, PoseArray, PoseStamped
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 from rclpy.duration import Duration
 from rclpy.node import Node
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rclpy.executors import MultiThreadedExecutor, ExternalShutdownException
 from rclpy.qos import qos_profile_sensor_data
 from rclpy.time import Time
 from scipy.spatial.transform import Rotation
@@ -171,6 +174,7 @@ class Perception(Node):
         self.declare_parameter('tracking_frame', 'odom')
         self.declare_parameter('max_age', 0.5)
         self.declare_parameter('update_period', 0.5)
+        self.declare_parameter('gpu.update_period', 0.2)
         self.declare_parameter('segmentation_backend', 'yolo')
         self.declare_parameter('yolo.model', 'artifacts/perception/g1_objects_yolo11n_seg.onnx')
         self.declare_parameter('yolo.confidence', 0.3)
@@ -210,6 +214,8 @@ class Perception(Node):
             setattr(self.free_settings, key, self.get_parameter('free_space.' + key).value)
         self.free_settings.validate()
         self.inference_ms = 0.0
+        self.processing_ms = 0.0
+        self.effective_period = self.get_parameter('update_period').value
         self.settings = Settings()
         for key, value in vars(self.settings).items():
             self.declare_parameter(key, value)
@@ -221,10 +227,16 @@ class Perception(Node):
             setattr(tracking, key, self.get_parameter('tracking.' + key).value)
         self.tracker = Tracker(tracking)
         if (
-            min(self.get_parameter('max_age').value, self.get_parameter('update_period').value)
+            min(
+                self.get_parameter('max_age').value,
+                self.get_parameter('update_period').value,
+                self.get_parameter('gpu.update_period').value,
+            )
             <= 0
         ):
             raise ValueError('max_age and update_period must be positive')
+        self.capture_lock = threading.Lock()
+        self.ingress_group = MutuallyExclusiveCallbackGroup()
         self.info = None
         self.captures = CaptureQueue(
             self.get_parameter('sync.queue_size').value,
@@ -246,12 +258,26 @@ class Perception(Node):
             Image, '/perception/segmentation/raw_image', qos_profile_sensor_data
         )
         self.marker_pub = self.create_publisher(MarkerArray, '/perception/markers', 10)
-        self.create_subscription(CameraInfo, '/camera/color/camera_info', self.calibration, 10)
+        self.create_subscription(
+            CameraInfo,
+            '/camera/color/camera_info',
+            self.calibration,
+            10,
+            callback_group=self.ingress_group,
+        )
         self.rgb = Subscriber(
-            self, Image, '/camera/color/image_raw', qos_profile=qos_profile_sensor_data
+            self,
+            Image,
+            '/camera/color/image_raw',
+            qos_profile=qos_profile_sensor_data,
+            callback_group=self.ingress_group,
         )
         self.depth = Subscriber(
-            self, Image, '/camera/depth/image_rect_raw', qos_profile=qos_profile_sensor_data
+            self,
+            Image,
+            '/camera/depth/image_rect_raw',
+            qos_profile=qos_profile_sensor_data,
+            callback_group=self.ingress_group,
         )
         self.sync = ApproximateTimeSynchronizer([self.rgb, self.depth], 5, 0.02)
         self.sync.registerCallback(self.capture)
@@ -264,9 +290,10 @@ class Perception(Node):
         self.info = info
 
     def capture(self, rgb, depth):
-        self.captures.push(
-            (rgb, depth), Time.from_msg(depth.header.stamp).nanoseconds / 1e9, time.monotonic()
-        )
+        with self.capture_lock:
+            self.captures.push(
+                (rgb, depth), Time.from_msg(depth.header.stamp).nanoseconds / 1e9, time.monotonic()
+            )
 
     def clear(self, status, stamp=None):
         header = PoseArray().header
@@ -292,11 +319,18 @@ class Perception(Node):
         now = self.get_clock().now().nanoseconds / 1e9
         wall = time.monotonic()
         period = self.get_parameter('update_period').value
+        from g1_backend.acceleration import enabled
+
+        if self.segmenter is not None and enabled() and self.segmenter.session.backend == 'cuda':
+            period = self.get_parameter('gpu.update_period').value
         if self.last_inference is not None and now < self.last_inference:
             self.last_inference = None
             self.tracker.expire(now)
         due = self.last_inference is None or now - self.last_inference >= period
-        capture = self.captures.select(now, wall, self.transforms_ready, consume=due)
+        self.effective_period = period
+        process_started = time.monotonic()
+        with self.capture_lock:
+            capture = self.captures.select(now, wall, self.transforms_ready, consume=due)
         if not due:
             return
         if capture is None:
@@ -418,6 +452,7 @@ class Perception(Node):
             tables = [transform_item(table, tracking_to_target) for table in tables]
             header = PoseArray().header
             header.stamp, header.frame_id = depth.header.stamp, target
+            self.processing_ms = (time.monotonic() - process_started) * 1000
             self.publish(tables, header, 'ok' if tables else 'no_table')
         except (ValueError, TransformException) as error:
             self.clear('unavailable: ' + str(error), depth.header.stamp)
@@ -445,6 +480,9 @@ class Perception(Node):
             'tracking_frame': self.get_parameter('tracking_frame').value,
             'segmentation_backend': self.get_parameter('segmentation_backend').value,
             'inference_ms': self.inference_ms,
+            'processing_ms': self.processing_ms,
+            'processing_period_sec': self.effective_period,
+            'inference_backend': self.segmenter.session.backend if self.segmenter else 'geometry',
             'synchronization': {
                 'queued': len(self.captures.queue),
                 'dropped': self.captures.dropped.copy(),
@@ -473,11 +511,14 @@ class Perception(Node):
 def main():
     rclpy.init()
     node = Perception()
+    executor = MultiThreadedExecutor(num_threads=2)
+    executor.add_node(node)
     try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
+        executor.spin()
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
+        executor.shutdown()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

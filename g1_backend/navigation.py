@@ -63,10 +63,16 @@ def lidar_scan(model, data, config, effects=None):
     world_directions = np.ascontiguousarray(local_directions @ rotation.T)
     distances = np.empty(len(world_directions), dtype=np.float64)
     geom_ids = np.empty(len(world_directions), dtype=np.int32)
-    mujoco.mj_multiRay(
-        model, data, origin, world_directions.ravel(), groups, 1, -1, geom_ids,
-        distances, len(world_directions), config['max_range'],
-    )
+    from .cuda.lidar import multi_ray
+
+    accelerated = multi_ray(model, data, origin, world_directions, groups, config['max_range'])
+    if accelerated is None:
+        mujoco.mj_multiRay(
+            model, data, origin, world_directions.ravel(), groups, 1, -1, geom_ids,
+            distances, len(world_directions), config['max_range'],
+        )
+    else:
+        distances, geom_ids = accelerated
     valid = (distances >= config['min_range']) & (distances <= config['max_range'])
     root_id = int(model.body_rootid[body_id])
     self_hit = np.zeros(len(distances), dtype=bool)
@@ -87,6 +93,11 @@ def project_scan(world_points, base_position, yaw, config):
     Ranges are planar distances, not slant ranges. All elevations contribute;
     ground/overhead points are rejected by world height. No synthetic rays.
     """
+    from .cuda.geometry import project_scan as gpu_project_scan
+
+    accelerated = gpu_project_scan(world_points, base_position, yaw, config)
+    if accelerated is not None:
+        return accelerated
     count = config['horizontal_samples']
     points = np.asarray(world_points, dtype=float).reshape(-1, 3)
     delta = points[:, :2] - np.asarray(base_position)[:2]

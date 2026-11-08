@@ -29,13 +29,22 @@ def voxel_cloud(points, resolution=.08, maximum=400000):
     if not len(points):
         return points
     keys = np.floor(points / resolution).astype(np.int64)
-    _, indices = np.unique(keys, axis=0, return_index=True)
+    from .cuda.geometry import voxel_indices
+
+    indices = voxel_indices(points, resolution)
+    if indices is None:
+        _, indices = np.unique(keys, axis=0, return_index=True)
     if len(indices) > maximum:
         indices = indices[np.linspace(0, len(indices) - 1, maximum, dtype=int)]
     return points[indices]
 
 
 def optimized_cloud(scans, poses, resolution=.08, maximum=400000):
+    from .cuda.geometry import optimized_cloud as gpu_cloud
+
+    accelerated = gpu_cloud(scans, poses, resolution, maximum)
+    if accelerated is not None:
+        return accelerated
     chunks = [points @ poses[key][:3, :3].T + poses[key][:3, 3]
               for key, points in scans.items() if key in poses]
     return voxel_cloud(np.concatenate(chunks) if chunks else np.empty((0, 3)),

@@ -57,8 +57,25 @@ class TSDFReconstructor:
         self.poses = {}
         self.volume = None
         self.rebuild_count = 0
+        self.gpu_failed = False
+        self.backend = 'cpu'
 
     def update(self, frames, poses):
+        from .acceleration import disable, enabled
+
+        if self.backend == 'cuda' and not enabled():
+            self.volume, self.poses = None, {}
+        try:
+            return self._update(frames, poses)
+        except Exception as error:
+            if self.backend != 'cuda':
+                raise
+            disable('tsdf', error)
+            self.gpu_failed = True
+            self.volume, self.poses = None, {}
+            return self._update(frames, poses)
+
+    def _update(self, frames, poses):
         camera_poses = {key: poses[key] @ frame.local_transform
                         for key, frame in frames.items() if key in poses}
         # Even small pose corrections must not leave stale surfaces behind.
@@ -66,10 +83,22 @@ class TSDFReconstructor:
                    or any(not np.allclose(pose, camera_poses[key], atol=1e-5, rtol=0)
                           for key, pose in self.poses.items() if key in camera_poses))
         if rebuild:
-            self.volume = o3d.pipelines.integration.ScalableTSDFVolume(
-                voxel_length=self.voxel_size, sdf_trunc=self.voxel_size * 3,
-                color_type=o3d.pipelines.integration.TSDFVolumeColorType.RGB8,
-                depth_sampling_stride=2)
+            from .acceleration import enabled, disable
+            from .cuda.tsdf import CudaTSDFVolume
+
+            self.backend = 'cpu'
+            if not self.gpu_failed and enabled() and o3d.core.cuda.is_available():
+                try:
+                    self.volume = CudaTSDFVolume(o3d, self.voxel_size, self.depth_max)
+                    self.backend = 'cuda'
+                except Exception as error:  # noqa: BLE001 - retry optional backend on CPU
+                    disable('tsdf', error)
+                    self.gpu_failed = True
+            if self.backend == 'cpu':
+                self.volume = o3d.pipelines.integration.ScalableTSDFVolume(
+                    voxel_length=self.voxel_size, sdf_trunc=self.voxel_size * 3,
+                    color_type=o3d.pipelines.integration.TSDFVolumeColorType.RGB8,
+                    depth_sampling_stride=2)
             self.poses = {}
             self.rebuild_count += 1
         integrated = 0
@@ -85,12 +114,16 @@ class TSDFReconstructor:
             width, height, fx, fy, cx, cy = frame.intrinsics
             if depth.shape != (height, width):
                 raise ValueError('RGB-D dimensions differ from camera calibration')
-            intrinsic = o3d.camera.PinholeCameraIntrinsic(width, height, fx, fy, cx, cy)
-            rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
-                o3d.geometry.Image(np.ascontiguousarray(color)),
-                o3d.geometry.Image(np.ascontiguousarray(depth)), depth_scale=1.0,
-                depth_trunc=self.depth_max, convert_rgb_to_intensity=False)
-            self.volume.integrate(rgbd, intrinsic, np.linalg.inv(camera_pose))
+            if self.backend == 'cuda':
+                self.volume.integrate_arrays(color, depth, frame.intrinsics,
+                                             np.linalg.inv(camera_pose))
+            else:
+                intrinsic = o3d.camera.PinholeCameraIntrinsic(width, height, fx, fy, cx, cy)
+                rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
+                    o3d.geometry.Image(np.ascontiguousarray(color)),
+                    o3d.geometry.Image(np.ascontiguousarray(depth)), depth_scale=1.0,
+                    depth_trunc=self.depth_max, convert_rgb_to_intensity=False)
+                self.volume.integrate(rgbd, intrinsic, np.linalg.inv(camera_pose))
             self.poses[key] = camera_pose.copy()
             integrated += 1
         mesh = self.volume.extract_triangle_mesh()

@@ -4,11 +4,12 @@ from dataclasses import dataclass
 
 import cv2
 import numpy as np
-from scipy.spatial import ConvexHull, QhullError, cKDTree
+from scipy.spatial import ConvexHull, QhullError
 from scipy.spatial.transform import Rotation
 
 from .perception import Settings, backproject, clusters, detect, pose, rectangle, transform_points
 from .perception_tracking import transform_item
+from .cuda.neighbors import NeighborIndex
 from .perception_yolo import Instance
 
 
@@ -55,7 +56,7 @@ class RefinementSettings:
             raise ValueError('Invalid component, shape or duplicate thresholds')
 
 
-def mask_points(depth, rgb, k, mask, settings, refinement):
+def mask_points(depth, rgb, k, mask, settings, refinement, transform=None):
     if mask.shape != depth.shape or mask.dtype != bool:
         raise ValueError('Instance mask must match registered depth resolution')
     pixels = int(mask.sum())
@@ -69,9 +70,28 @@ def mask_points(depth, rgb, k, mask, settings, refinement):
     if refinement.erosion_pixels and pixels > 100:
         width = refinement.erosion_pixels * 2 + 1
         interior = cv2.erode(mask.astype('uint8'), np.ones((width, width), 'uint8')).astype(bool)
-    selected = np.where(interior & valid, depth, np.nan)
     dense = Settings(**{**vars(settings), 'stride': 1})
-    points, colors = backproject(selected, rgb, k, dense)
+    from .cuda.workspace import active
+    from .cuda.geometry import attempt
+
+    workspace = active()
+    accelerated = None
+    if workspace is not None:
+        accelerated = attempt(
+            'mask_backproject',
+            depth.size,
+            lambda cp: workspace.backproject(
+                depth, rgb, np.asarray(k).reshape(3, 3), dense, interior & valid, transform
+            ),
+            minimum=0,
+        )
+    if accelerated is None:
+        selected = np.where(interior & valid, depth, np.nan)
+        points, colors = backproject(selected, rgb, k, dense)
+        if transform is not None:
+            points = transform_points(points, transform)
+    else:
+        points, colors = accelerated
     return points, colors, fraction
 
 
@@ -108,6 +128,31 @@ def detect_instances(
     settings=None,
     refinement=None,
 ):
+    from .cuda.workspace import frame_scope
+
+    with frame_scope(depth, rgb):
+        return _detect_instances(
+            depth,
+            rgb,
+            k,
+            instances,
+            camera_to_processing,
+            processing_to_output,
+            settings,
+            refinement,
+        )
+
+
+def _detect_instances(
+    depth,
+    rgb,
+    k,
+    instances,
+    camera_to_processing,
+    processing_to_output=None,
+    settings=None,
+    refinement=None,
+):
     """Geometry is estimated only from predicted masks; model labels stay explicit."""
     s, r = settings or Settings(), refinement or RefinementSettings()
     s.validate()
@@ -117,10 +162,12 @@ def detect_instances(
     for instance_index, instance in enumerate(instances):
         if instance.label != 'table':
             continue
-        optical, colors, fraction = mask_points(depth, rgb, k, instance.mask, s, r)
+        optical, colors, fraction = mask_points(
+            depth, rgb, k, instance.mask, s, r, camera_to_processing
+        )
         if fraction < r.min_valid_fraction or len(optical) < s.min_table_points:
             continue
-        points = transform_points(optical, camera_to_processing)
+        points = optical
         # Keep the existing constrained plane finder, but prevent unmasked
         # points or heuristic box clusters from becoming semantic detections.
         surfaces = detect(points, colors, s, detect_objects=False)
@@ -219,12 +266,16 @@ def detect_instances(
     for instance_index, instance in enumerate(instances):
         if instance.label not in ('box', 'cylinder', 'sphere'):
             continue
-        optical, colors, fraction = mask_points(depth, rgb, k, instance.mask, s, r)
+        optical, colors, fraction = mask_points(
+            depth, rgb, k, instance.mask, s, r, camera_to_processing
+        )
         if fraction < r.min_valid_fraction or len(optical) < r.min_points:
             continue
-        points = transform_points(optical, camera_to_processing)
+        points = optical
         # Radius support rejects isolated bad depth returns before component selection.
-        neighbors = cKDTree(points).query_ball_point(points, r.neighbor_radius, return_length=True)
+        neighbors = NeighborIndex(points).query_ball_point(
+            points, r.neighbor_radius, return_length=True
+        )
         points, colors = points[neighbors >= 3], colors[neighbors >= 3]
         if len(points) < r.min_points:
             continue
@@ -348,7 +399,7 @@ def detect_instances(
                 if np.linalg.norm(np.array(obj['mean_rgb']) - previous['mean_rgb']) > 80:
                     continue
                 small, large = sorted([obj['_points'], previous['_points']], key=len)
-                distance, _ = cKDTree(large).query(small)
+                distance, _ = NeighborIndex(large).query(small)
                 if np.mean(distance <= s.plane_distance * 2) >= r.duplicate_point_fraction:
                     duplicate = True
                     break
@@ -381,7 +432,7 @@ def validated_instances(depth, rgb, k, instances, tables, camera_to_output, sett
         pixels = np.flatnonzero(valid)
         optical, _ = backproject(np.where(valid, depth, np.nan), rgb, k, dense)
         points = transform_points(optical, camera_to_output)
-        distance, _ = cKDTree(np.vstack(clouds[index])).query(points)
+        distance, _ = NeighborIndex(np.vstack(clouds[index])).query(points)
         mask = np.zeros(depth.shape, dtype=bool)
         mask.flat[pixels[distance <= s.plane_distance]] = True
         if not mask.any():

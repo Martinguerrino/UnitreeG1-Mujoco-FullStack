@@ -74,6 +74,11 @@ def backproject(depth, rgb, k, settings):
         raise ValueError('Invalid camera intrinsics')
     if settings.stride < 1:
         raise ValueError('stride must be positive')
+    from .cuda.geometry import backproject as gpu_backproject
+
+    accelerated = gpu_backproject(depth, rgb, k, settings)
+    if accelerated is not None:
+        return accelerated
     v, u = np.mgrid[0 : depth.shape[0] : settings.stride, 0 : depth.shape[1] : settings.stride]
     z = depth[:: settings.stride, :: settings.stride]
     valid = np.isfinite(z) & (z >= settings.min_depth) & (z <= settings.max_depth)
@@ -82,11 +87,19 @@ def backproject(depth, rgb, k, settings):
 
 
 def transform_points(points, matrix):
+    # A standalone round-trip was slower on the validation GPU. Transforms are
+    # accelerated within resident CUDA workspaces and map fusion instead.
     return np.asarray(points) @ matrix[:3, :3].T + matrix[:3, 3]
 
 
 def clusters(points, radius):
     """Connected components of a spatial proximity graph."""
+    from .cuda.spatial import components
+
+    accelerated = components(points, radius)
+    if accelerated is not None:
+        yield from accelerated
+        return
     tree = cKDTree(points)
     visited = np.zeros(len(points), dtype=bool)
     for start in range(len(points)):
@@ -150,9 +163,13 @@ def detect(points, colors, settings=None, output_transform=None, *, detect_objec
     points, colors = points[valid], colors[valid]
     if not len(points):
         return []
-    _, keep = np.unique(
-        np.floor(points / s.voxel_size).astype(np.int64), axis=0, return_index=True
-    )
+    from .cuda.geometry import voxel_indices, plane_inliers
+
+    keep = voxel_indices(points, s.voxel_size)
+    if keep is None:
+        _, keep = np.unique(
+            np.floor(points / s.voxel_size).astype(np.int64), axis=0, return_index=True
+        )
     points, colors = points[keep], colors[keep]
     remaining = np.flatnonzero(
         (points[:, 2] >= s.min_table_height) & (points[:, 2] <= s.max_table_height)
@@ -163,19 +180,25 @@ def detect(points, colors, settings=None, output_transform=None, *, detect_objec
         if len(remaining) < s.min_table_points:
             break
         cloud = points[remaining]
-        best = np.empty(0, dtype=int)
-        for _ in range(s.plane_trials):
-            a, b, c = cloud[rng.choice(len(cloud), 3, replace=False)]
-            normal = np.cross(b - a, c - a)
-            norm = np.linalg.norm(normal)
-            if norm < 1e-8:
-                continue
-            normal /= norm
-            if abs(normal[2]) < np.cos(np.deg2rad(s.max_table_tilt_deg)):
-                continue
-            inliers = np.flatnonzero(np.abs((cloud - a) @ normal) < s.plane_distance)
-            if len(inliers) > len(best):
-                best = inliers
+        # Generate the same seeded hypotheses for both backends.
+        hypotheses = np.asarray([rng.choice(len(cloud), 3, replace=False)
+                                 for _ in range(s.plane_trials)])
+        best = plane_inliers(cloud, hypotheses, s.plane_distance,
+                             np.cos(np.deg2rad(s.max_table_tilt_deg)))
+        if best is None:
+            best = np.empty(0, dtype=int)
+            for sample in hypotheses:
+                a, b, c = cloud[sample]
+                normal = np.cross(b - a, c - a)
+                norm = np.linalg.norm(normal)
+                if norm < 1e-8:
+                    continue
+                normal /= norm
+                if abs(normal[2]) < np.cos(np.deg2rad(s.max_table_tilt_deg)):
+                    continue
+                inliers = np.flatnonzero(np.abs((cloud - a) @ normal) < s.plane_distance)
+                if len(inliers) > len(best):
+                    best = inliers
         if len(best) < s.min_table_points:
             break
         plane_ids = remaining[best]

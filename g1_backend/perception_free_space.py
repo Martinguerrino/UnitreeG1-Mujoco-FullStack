@@ -3,10 +3,17 @@
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.ndimage import distance_transform_edt
+from scipy.ndimage import distance_transform_edt as cpu_distance_transform
 from scipy.spatial.transform import Rotation
 
 from .perception import pose
+
+
+def distance_transform_edt(mask):
+    from .cuda.images import distance_transform
+
+    result = distance_transform(mask)
+    return cpu_distance_transform(mask) if result is None else result
 
 
 @dataclass

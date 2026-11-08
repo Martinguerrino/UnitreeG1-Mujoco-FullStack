@@ -26,18 +26,33 @@ class OkuraPolicy:
         torch.set_num_threads(threads)
         torch.manual_seed(0)
         config = PreTrainedConfig.from_pretrained(str(checkpoint), local_files_only=True)
-        config.device = 'cpu'
+        from g1_backend.cuda.act import ActDevice
+
+        self.acceleration = ActDevice(checkpoint)
+        self.device = self.acceleration.device
+        config.device = self.device
         # All backbone weights are in model.safetensors. Avoid downloading ImageNet weights.
         config.pretrained_backbone_weights = None
         self.policy = ACTPolicy(config)
         self.policy.load_state_dict(load_file(str(checkpoint / 'model.safetensors')), strict=True)
+        try:
+            self.policy.to(self.device)
+        except (RuntimeError, MemoryError) as error:
+            from g1_backend.acceleration import disable
+
+            disable('torch', error)
+            self.device = self.acceleration.device = 'cpu'
+            self.policy.to('cpu')
         self.policy.eval()
-        self.pre = PolicyProcessorPipeline.from_pretrained(
-            str(checkpoint),
-            config_filename='policy_preprocessor.json',
-            overrides={'device_processor': {'device': 'cpu'}},
-            local_files_only=True,
-        )
+        try:
+            self.pre = self.acceleration.preprocessor()
+        except (RuntimeError, MemoryError) as error:
+            if self.device != 'cuda':
+                raise
+            from g1_backend.acceleration import disable
+
+            disable('torch', error)
+            self.acceleration.use_cpu(self)
         self.post = PolicyProcessorPipeline.from_pretrained(
             str(checkpoint),
             config_filename='policy_postprocessor.json',
@@ -47,6 +62,9 @@ class OkuraPolicy:
         )
 
     def chunk(self, state: np.ndarray, image: np.ndarray) -> np.ndarray:
+        return self.acceleration.chunk(self, state, image)
+
+    def _chunk(self, state: np.ndarray, image: np.ndarray) -> np.ndarray:
         import torch
 
         if state.shape != (16,) or not np.isfinite(state).all():
@@ -132,7 +150,7 @@ def main() -> None:
         'inference_passed': True,
         'action_shape': list(actions.shape),
         'inference_seconds': elapsed,
-        'device': 'cpu',
+        'device': policy.device,
         'observation_source': observation_source,
         'first_action': actions[0].tolist(),
         'motor_commands_sent': False,

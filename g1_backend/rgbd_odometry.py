@@ -22,7 +22,9 @@ class RgbdReference:
     def __init__(self, rgb, depth, intrinsic):
         self.intrinsic = np.asarray(intrinsic)
         self.depth = depth
-        self.orb = cv2.ORB_create(nfeatures=1600, fastThreshold=8)
+        from .cuda.images import Orb
+
+        self.orb = Orb(cv2, nfeatures=1600, fastThreshold=8)
         self.keypoints, self.descriptors = self.orb.detectAndCompute(rgb, None)
         points, colors = depth_cloud(rgb, depth, intrinsic)
         self.geometry = CloudReference(points, colors)

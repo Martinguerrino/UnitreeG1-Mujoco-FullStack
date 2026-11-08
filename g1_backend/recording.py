@@ -81,6 +81,20 @@ class SensorRecorder:
 
 
 def encode_video(directory, output=None, fps=30, view=None):
+    from .cuda.video import codec
+    from .acceleration import disable
+
+    encoder = codec()
+    try:
+        return _encode_video(directory, output, fps, view, encoder)
+    except Exception as error:
+        if encoder == 'libx264':
+            raise
+        disable('video', error)
+        return _encode_video(directory, output, fps, view, 'libx264')
+
+
+def _encode_video(directory, output, fps, view, encoder):
     """Zero-order hold of recorded RGB samples, preserving simulation-time spacing.
 
     Video is an export of observations, never a new physics replay or success test.
@@ -130,7 +144,7 @@ def encode_video(directory, output=None, fps=30, view=None):
     current = None
     try:
         with av.open(str(temporary), mode='w') as container:
-            stream = container.add_stream('libx264', rate=rate)
+            stream = container.add_stream(encoder, rate=rate)
             stream.width, stream.height = width, height
             stream.pix_fmt = 'yuv420p'
             for index in range(total):
@@ -164,6 +178,7 @@ def encode_video(directory, output=None, fps=30, view=None):
         'duration': total / float(rate),
         'sampling': 'hold last recorded RGB sample; simulation time',
         'pyav_version': av.__version__,
+        'encoder': encoder,
     }
     write_json(output.with_suffix('.json'), report)
     return report

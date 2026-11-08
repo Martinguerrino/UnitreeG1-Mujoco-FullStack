@@ -1,0 +1,120 @@
+{
+  "date": "2026-10-09",
+  "gpu": "NVIDIA GeForce RTX 2060, 6 GiB",
+  "driver": "580.173.02",
+  "dependencies": {
+    "torch": "2.7.1+cu128",
+    "cupy": "13.6.0",
+    "onnxruntime_gpu": "1.23.2",
+    "open3d": "0.19.0"
+  },
+  "geometry": {
+    "transform_40000": {
+      "cpu": {
+        "available": true,
+        "warmup_seconds": 0.0013536210171878338,
+        "median_ms": 0.5693151615560055,
+        "p95_ms": 1.1514471378177402
+      },
+      "cuda": {
+        "available": true,
+        "warmup_seconds": 0.36961566284298897,
+        "median_ms": 0.6590923294425011,
+        "p95_ms": 0.8846369571983812
+      },
+      "equivalent": true,
+      "speedup": 0.8637866595072736
+    },
+    "voxel_40000": {
+      "cpu": {
+        "available": true,
+        "warmup_seconds": 0.025762376841157675,
+        "median_ms": 26.419704779982567,
+        "p95_ms": 27.27516503073275
+      },
+      "cuda": {
+        "available": true,
+        "warmup_seconds": 0.022780274972319603,
+        "median_ms": 1.0317061096429825,
+        "p95_ms": 1.2243458069860933
+      },
+      "equivalent": true,
+      "speedup": 25.607781647357882
+    },
+    "radius_counts_10000": {
+      "cpu": {
+        "available": true,
+        "warmup_seconds": 0.012902782764285803,
+        "median_ms": 12.685358989983797,
+        "p95_ms": 12.762961070984602
+      },
+      "cuda": {
+        "available": true,
+        "warmup_seconds": 0.001994088292121887,
+        "median_ms": 0.798459630459547,
+        "p95_ms": 0.8344671688973904
+      },
+      "equivalent": true,
+      "speedup": 15.887289107757196
+    }
+  },
+  "act": {
+    "off": {
+      "device": "cpu",
+      "median_ms": 120.28921721503139
+    },
+    "auto": {
+      "device": "cuda",
+      "median_ms": 58.57063876464963
+    },
+    "max_action_difference": 4.291534423828125e-06,
+    "equivalent": true
+  },
+  "tsdf": {
+    "off": {
+      "backend": "cpu",
+      "median_ms": 37.949776742607355,
+      "triangles": 8692,
+      "integrated": 20
+    },
+    "auto": {
+      "backend": "cuda",
+      "median_ms": 20.94760024920106,
+      "triangles": 8528,
+      "integrated": 20
+    }
+  },
+  "conditions": {
+    "geometry": "seed 42; 7 warm repetitions, input/output copies included",
+    "act": "pinned checkpoint, mean state, zero RGB 480x640; 3 warm repetitions",
+    "tsdf": "20 RGB-D frames 240x320; constant depth 2m; 3 warm repetitions, extraction and color repair included"
+  },
+  "tests": {
+    "cpu": {
+      "passed": 202,
+      "skipped": 24
+    },
+    "gpu": {
+      "passed": 229,
+      "skipped": 5
+    }
+  },
+  "limitations": [
+    "Component measurements; not full ROS FPS",
+    "Standalone transform slower; original CPU implementation retained",
+    "TSDF meshes have different triangulation"
+  ],
+  "project_environment_validation": {
+    "environment": "unitree-mujoco",
+    "python": "/home/martin/miniconda3/envs/unitree-mujoco/bin/python",
+    "cuda_suite": {
+      "passed": 231,
+      "skipped": 5
+    },
+    "cpu_mode_suite": {
+      "passed": 231,
+      "skipped": 5
+    },
+    "note": "GPU-specific tests explicitly enable CUDA; application tests honor G1_GPU=off."
+  }
+}

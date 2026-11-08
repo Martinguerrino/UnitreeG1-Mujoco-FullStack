@@ -1,4 +1,4 @@
-# Optional experiment; install CPU torch first (scripts/setup_okura.sh).
+# Optional experiment; setup_okura.sh preserves an installed compatible CUDA torch.
 torch==2.7.1
 torchvision==0.22.1
 lerobot==0.4.1

@@ -135,6 +135,17 @@ sin tocar el borde de la imagen; no se garantiza detectar toda oclusión.
 Los parámetros `yolo.*`, `refinement.*`, `multiview.*` y `tracking.*` están en
 `configs/perception.yaml`. `multiview.enabled:=false` desactiva la acumulación.
 `inference_ms` registra el tiempo de segmentación/refinamiento por publicación.
+`processing_ms` registra el procesamiento completo antes de publicar;
+`inference_backend` y `processing_period_sec` permiten comprobar el backend
+activo y su intervalo. Con YOLO CUDA, `gpu.update_period: 0.2` permite hasta
+5 actualizaciones por segundo de tiempo simulado; CPU mantiene
+`update_period: 0.5` (2 Hz). La frecuencia efectiva depende también del render,
+la disponibilidad de RGB-D/TF y el tiempo de procesamiento.
+
+La recepción RGB-D usa un grupo de callbacks separado del procesamiento y
+un executor de dos hilos. Las consultas de vecinos grandes conservan el
+árbol espacial CPU, evitando calibraciones CUDA con coste cuadrático; las
+calibraciones rechazadas se reutilizan para tamaños similares.
 La edad de captura sigue publicada; un consumidor debe comprobarla antes de
 usar una pose, especialmente si CPU, render o SLAM están sobrecargados.
 

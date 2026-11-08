@@ -38,9 +38,9 @@ class HolosomaFastSACPolicy:
         options = ort.SessionOptions()
         options.intra_op_num_threads = 1
         options.inter_op_num_threads = 1
-        self.session = ort.InferenceSession(
-            str(checkpoint), options, providers=['CPUExecutionProvider']
-        )
+        from ..acceleration import OnnxSession
+
+        self.session = OnnxSession(ort, str(checkpoint), options, calibrate=True)
         if self.session.get_inputs()[0].shape != [1, 100]:
             raise ValueError('Expected Holosoma 100-observation export')
         if self.session.get_outputs()[0].shape != [1, 29]:
@@ -48,6 +48,9 @@ class HolosomaFastSACPolicy:
         metadata = self.session.get_modelmeta().custom_metadata_map
         self.kp = np.asarray(json.loads(metadata['kp']), dtype=np.float32)
         self.kd = np.asarray(json.loads(metadata['kd']), dtype=np.float32)
+        if self.session.backend == 'cuda':
+            self.session.run(None, {
+                self.session.get_inputs()[0].name: np.zeros((1, 100), dtype=np.float32)})
         self.reset()
 
     def reset(self):

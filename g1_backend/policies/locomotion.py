@@ -45,11 +45,14 @@ class UnitreeVelocityPolicy:
         options = ort.SessionOptions()
         options.intra_op_num_threads = 1
         options.inter_op_num_threads = 1
-        self.session = ort.InferenceSession(
-            str(checkpoint), options, providers=['CPUExecutionProvider']
-        )
+        from ..acceleration import OnnxSession
+
+        self.session = OnnxSession(ort, str(checkpoint), options, calibrate=True)
         if self.session.get_inputs()[0].shape != [1, 480]:
             raise ValueError('Expected the pinned 480-observation export')
+        if self.session.backend == 'cuda':
+            # Warm and compare providers before entering the control loop.
+            self.session.run(None, {'obs': np.zeros((1, 480), dtype=np.float32)})
         self.reset()
 
     def reset(self):

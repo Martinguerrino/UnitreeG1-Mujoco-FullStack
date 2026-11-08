@@ -1,5 +1,8 @@
 # Unitree G1 — MuJoCo + ROS 2
 
+Backend CUDA opcional y respaldo CPU: [guía GPU](docs/gpu.md).
+La física actual se conserva; [MuJoCo Warp](docs/mujoco_warp_future.md) queda documentado para una etapa futura.
+
 ## Instalación completa
 
 El instalador está en **[`setup.sh`](setup.sh), en la raíz del repositorio**.
