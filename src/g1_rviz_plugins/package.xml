@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>g1_rviz_plugins</name>
+  <version>0.1.0</version>
+  <description>Live numeric camera angle controls for G1 navigation in RViz.</description>
+  <maintainer email="maintainer@example.com">G1 Locomanipulation Maintainer</maintainer>
+  <license>BSD-3-Clause</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rviz_common</depend>
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>pluginlib</depend>
+  <build_depend>qtbase5-dev</build_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

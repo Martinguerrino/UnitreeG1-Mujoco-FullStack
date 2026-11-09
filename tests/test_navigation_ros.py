@@ -280,3 +280,27 @@ def test_tracker_compensates_articulated_mount_without_imu():
     pose, covariance, _ = tracker.measurement(result, new_mount, 1.2)
     np.testing.assert_allclose(pose, anchor @ movement, atol=1e-10)
     assert np.linalg.eigvalsh(covariance)[0] > 0
+
+
+def test_camera_tf_uses_captured_angle_not_latest_ui_command():
+    from std_msgs.msg import Float64
+    from g1_backend.camera_angle import mount, optical_quaternion
+    bridge = module.Bridge.__new__(module.Bridge)
+    bridge.camera_rpy = mount()[1]
+    bridge.camera_tf_stamps = set()
+    bridge.socket, bridge.tf = Mock(), Mock()
+    bridge.camera_captured_angle = Mock()
+    bridge.color, bridge.depth, bridge.camera_info = Mock(), Mock(), Mock()
+    bridge.camera_angle(Float64(data=30.))
+    bridge.publish_sensors({'time': np.array(1.25), 'camera_pitch_rad': np.array(0.),
+                            'd435i_rgb': np.zeros((2, 2, 3), dtype=np.uint8)})
+    tf = bridge.tf.sendTransform.call_args.args[0]
+    q = tf.transform.rotation
+    np.testing.assert_allclose([q.w, q.x, q.y, q.z], optical_quaternion(0., bridge.camera_rpy))
+    assert tf.header.stamp == bridge.color.publish.call_args.args[0].header.stamp
+    assert tf.header.frame_id == 'd435_link'
+    assert bridge.camera_captured_angle.publish.call_args.args[0].data == 0.
+    # The matching depth packet must not publish a conflicting duplicate TF.
+    bridge.publish_sensors({'time': np.array(1.25), 'camera_pitch_rad': np.array(0.),
+                            'd435i_depth': np.ones((2, 2), dtype=np.float32)})
+    assert bridge.tf.sendTransform.call_count == 1

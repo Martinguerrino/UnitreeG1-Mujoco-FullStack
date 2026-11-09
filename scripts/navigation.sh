@@ -66,7 +66,11 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 # Avoid blocking service responses while LiDAR/graph processing is busy.
 export RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS
 export ROS_DOMAIN_ID=43
-export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+# Jazzy's LOCALHOST setting injects a SHM transport even when Fast DDS is
+# configured for UDP only. Honor our explicit loopback-only transport instead.
+export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
+export FASTRTPS_DEFAULT_PROFILES_FILE="$ROOT_DIR/configs/navigation/fastdds_local.xml"
+export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
 export OPENBLAS_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 # The navigation backend uses its own Unitree DDS domain (44).  If a previous

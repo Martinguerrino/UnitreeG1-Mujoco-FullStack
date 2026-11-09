@@ -138,11 +138,15 @@ def run_experiment(source):
             raise RuntimeError('Another local experiment already owns this DDS domain') from error
         robot = DdsRobot(config['robot'], limits)
         ctx = mp.get_context('spawn')
+        camera_control = None
+        if navigation is not None and config['camera'].get('angle_control'):
+            camera_control = ctx.RawValue('d', config['camera']['angle_control']['original_rpy'][1])
+            navigation.camera_angle_control = camera_control
         pipe, child = ctx.Pipe(duplex=False)
         stop, release = ctx.Event(), ctx.Event()
         process = ctx.Process(
             target=run_simulator,
-            args=(config, locomotion.get_action().q, child, stop, release),
+            args=(config, locomotion.get_action().q, child, stop, release, camera_control),
             daemon=False,
         )
         process.start()

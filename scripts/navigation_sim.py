@@ -41,6 +41,13 @@ if __name__ == '__main__':
         if args.ideal == 'true':
             parser.error('--real cannot be combined with --ideal')
         config['sensor_effects'] = yaml.safe_load((ROOT / 'configs/navigation/sensors_real.yaml').read_text())
+    from g1_backend.camera_angle import mount, render_quaternion
+    position, original_rpy = mount()
+    config['camera']['angle_control'] = {'original_rpy': original_rpy}
+    for view in config['camera'].get('views', []):
+        if view['name'] == 'd435i':
+            view['position'] = position
+            view['quaternion'] = render_quaternion(original_rpy[1], original_rpy).tolist()
     config['navigation']['feet_estimation'] = args.feet_estimation == 'true'
     config['robot']['dexterity'] = args.dexterity
     config['robot']['initial_position'][:2] = [args.initial_x, args.initial_y]

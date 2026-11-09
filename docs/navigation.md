@@ -181,6 +181,51 @@ aporta SLAM durante mapping o AMCL con mapa guardado.
 
 Referencia: https://docs.nav2.org/jazzy/tutorials/general_tutorials/navigation2_with_slam/navigation2_with_slam/
 
+## Ajustar la inclinación de la cámara en RViz
+
+Al ejecutar navegación, RViz incluye **D435 Camera Angle**. Con la herramienta
+**Interact**, arrastrá el aro o la esfera celeste junto a la cámara para cambiar
+su inclinación. El cono de **D435i Projection 3D** muestra hacia dónde apunta;
+el plano RGB se puede activar por separado en **RGB image plane**.
+
+El panel **Camera Angle** aparece junto a los paneles de RViz. En **Ángulo (°)**
+podés escribir un valor con tres decimales y pulsar **Enter**, o usar las flechas
+para pasos de 0,1°. El campo se actualiza al arrastrar la esfera o modificar el
+parámetro por ROS, sin interrumpir un número que estés escribiendo.
+**Última imagen** muestra por separado el ángulo con el que se capturó la imagen
+más reciente: no adelanta la lectura al valor solicitado. El botón
+**Restaurar URDF** usa el valor leído del controlador, sin duplicar 47,6° en el
+panel. Si no está visible, seleccioná **Panels → Add New Panel →
+g1_rviz_plugins/CameraAnglePanel**. El paquete se compila con `bash scripts/build.sh`.
+
+El valor inicial se obtiene de `d435_joint` del URDF original, actualmente
+**47,6°**, sin modificar ese archivo. Un ángulo positivo mira hacia abajo.
+El rango permitido es de −45° a 90°. Clic derecho sobre el control y
+**Restaurar angulo original URDF** vuelve al montaje original.
+
+También se puede introducir un valor numérico durante la ejecución:
+
+```bash
+ROS_DOMAIN_ID=43 ros2 param set /g1_camera_angle pitch_deg 30.0
+ROS_DOMAIN_ID=43 ros2 param get /g1_camera_angle pitch_deg
+```
+
+El ajuste modifica el render RGB y profundidad, no solo un dibujo en RViz.
+Cada paquete lleva el ángulo de captura y el puente publica la transformación
+óptica con ese mismo tiempo; las imágenes demoradas conservan su pose original.
+El valor se reinicia al montaje URDF en una nueva sesión. Es un ajuste virtual
+del sensor de simulación, no un actuador físico añadido al robot. En SLAM RGB-D
+conviene ajustar gradualmente para conservar solapamiento visual entre imágenes.
+El FOV y los parámetros intrínsecos de la cámara no cambian con la inclinación.
+
+Validación en vivo (incluye mensajes de arrastre y restauración del menú):
+
+```bash
+source /opt/ros/jazzy/setup.bash
+ROS_DOMAIN_ID=43 /usr/bin/python3 scripts/check_navigation_camera_angle.py \
+  --require-rviz --output results/navigation/camera_angle_validation.json
+```
+
 ## Reparación de sensores 3D y evidencia (2026-10-01)
 
 Las posiciones y rotaciones anteriores del MID-360 y la D435i diferían del

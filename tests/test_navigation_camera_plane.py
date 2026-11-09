@@ -77,16 +77,11 @@ def test_partial_pixel_blocks_fill_the_whole_rectangle():
 
 
 def test_ros_optical_axes_match_mujoco_camera_view():
-    import ast
     import math
     import yaml
+    from g1_backend.camera_angle import optical_quaternion, mount
     root = Path(__file__).resolve().parents[1]
-    tree = ast.parse((root / 'scripts/navigation_bridge.py').read_text())
-    loop = next(n for n in ast.walk(tree) if isinstance(n, ast.For)
-                and isinstance(n.target, ast.Tuple)
-                and [v.id for v in n.target.elts] == ['parent', 'child', 'xyz', 'quaternion'])
-    mounts = ast.literal_eval(loop.iter)
-    optical = next(t[3] for t in mounts if t[1] == 'd435i_color_optical_frame')
+    optical = optical_quaternion(mount()[1][1], mount()[1])
 
     def rotation(q):
         w, x, y, z = q

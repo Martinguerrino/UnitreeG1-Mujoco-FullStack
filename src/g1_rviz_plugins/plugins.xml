@@ -1,0 +1,5 @@
+<library path="g1_camera_angle_panel">
+  <class name="g1_rviz_plugins/CameraAnglePanel" type="g1_rviz_plugins::CameraAnglePanel" base_class_type="rviz_common::Panel">
+    <description>Numeric D435 camera pitch, synchronized with RViz interactive controls.</description>
+  </class>
+</library>

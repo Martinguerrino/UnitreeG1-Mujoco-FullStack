@@ -92,6 +92,10 @@ def _run_sensor(kind, config, sources, backend, states, frames, stop, status):
         if kind == 'camera':
             camera = config['camera']
             views = camera.get('views') or [{'name': 'policy_camera'}]
+            nominal_pitch = None
+            if any(view.get('name') == 'd435i' for view in views):
+                from .camera_angle import mount
+                nominal_pitch = mount()[1][1]
             renderer = mujoco.Renderer(model, camera['height'], camera['width'])
             mujoco.mj_forward(model, data)
             for view in views:
@@ -120,10 +124,22 @@ def _run_sensor(kind, config, sources, backend, states, frames, stop, status):
             if snapshot is None:
                 stop.wait(0.002)
                 continue
-            captured, state = snapshot
+            captured, state = snapshot[:2]
+            camera_pitch = snapshot[2] if len(snapshot) == 3 else None
+            if kind == 'camera' and camera_pitch is not None:
+                from .camera_angle import render_quaternion
+                for view in views:
+                    if view.get('name') == 'd435i':
+                        model.cam_quat[model.camera(view['name']).id] = render_quaternion(
+                            camera_pitch, camera['angle_control']['original_rpy'])
             mujoco.mj_setState(model, data, state, spec)
             mujoco.mj_forward(model, data)
             result = {'time': captured, 'sensors': {}}
+            if camera_pitch is not None:
+                result['camera_pitch_rad'] = float(camera_pitch)
+            elif kind == 'camera' and nominal_pitch is not None:
+                # Legacy callers without live controls retain the nominal TF.
+                result['camera_pitch_rad'] = float(nominal_pitch)
             if kind == 'camera':
                 for view in views:
                     renderer.update_scene(data, camera=view['name'])
@@ -203,8 +219,9 @@ class SensorWorker:
                 self.close()
         raise RuntimeError(f'Unable to initialize {kind}: ' + '\n'.join(errors))
 
-    def submit(self, captured, state):
-        return self.states.put((captured, state))
+    def submit(self, captured, state, camera_pitch=None):
+        snapshot = (captured, state) if camera_pitch is None else (captured, state, float(camera_pitch))
+        return self.states.put(snapshot)
 
     def receive(self, sim_time=None):
         if self.status.poll():

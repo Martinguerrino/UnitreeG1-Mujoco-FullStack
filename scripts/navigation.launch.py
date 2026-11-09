@@ -170,6 +170,10 @@ def prepare(context):
         yaml.safe_dump(params, handle)
         params_path = handle.name
     rviz_config = yaml.safe_load((nav / 'rviz/nav2_default_view.rviz').read_text())
+    if not ideal:
+        rviz_config.setdefault('Panels', []).append({
+            'Class': 'g1_rviz_plugins/CameraAnglePanel', 'Name': 'Camera Angle',
+        })
     displays = rviz_config['Visualization Manager']['Displays']
     for display in displays:
         if display.get('Name') == 'RobotModel':
@@ -201,7 +205,7 @@ def prepare(context):
         },
         {
             'Class': 'rviz_common/Group', 'Name': 'D435i Projection 3D',
-            'Enabled': False, 'Value': False,
+            'Enabled': True, 'Value': True,
             'Displays': [
                 {
                     'Class': 'rviz_default_plugins/CameraInfo', 'Name': 'Camera field of view',
@@ -214,7 +218,7 @@ def prepare(context):
                 },
                 {
                     'Class': 'rviz_default_plugins/Marker', 'Name': 'RGB image plane',
-                    'Enabled': True, 'Value': True,
+                    'Enabled': False, 'Value': False,
                     'Topic': {'Value': '/camera/color/image_plane', 'Depth': 1,
                               'Reliability Policy': 'Best Effort',
                               'Durability Policy': 'Volatile', 'History Policy': 'Keep Last'},
@@ -222,6 +226,13 @@ def prepare(context):
             ],
         },
     ])
+    if not ideal:
+        displays.append({
+            'Class': 'rviz_default_plugins/InteractiveMarkers', 'Name': 'D435 Camera Angle',
+            'Enabled': True, 'Value': True,
+            'Interactive Markers Namespace': '/camera_angle',
+            'Show Descriptions': True, 'Show Axes': False, 'Show Visual Aids': True,
+        })
     if perception:
         displays.append({
             'Class': 'rviz_default_plugins/MarkerArray', 'Name': 'RGB-D perception',
@@ -304,6 +315,11 @@ def prepare(context):
         Node(package='robot_state_publisher', executable='robot_state_publisher',
              parameters=[robot_description, {'use_sim_time': True}], output='screen'),
     ]
+    if not ideal:
+        actions.append(ExecuteProcess(
+            cmd=['/usr/bin/python3', str(ROOT / 'scripts/navigation_camera_angle.py'),
+                 '--ros-args', '-p', 'use_sim_time:=true'], output='screen',
+        ))
     if perception:
         actions.append(ExecuteProcess(
             cmd=['/usr/bin/python3', str(ROOT / 'scripts/perception_rgbd.py'),

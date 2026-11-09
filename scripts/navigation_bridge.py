@@ -6,6 +6,8 @@ import math
 import socket
 import struct
 import time
+import sys
+from pathlib import Path
 
 import numpy as np
 import rclpy
@@ -15,9 +17,13 @@ from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException
 from rclpy.qos import qos_profile_sensor_data
 from rosgraph_msgs.msg import Clock
-from std_msgs.msg import String
+from std_msgs.msg import String, Float64
 from sensor_msgs.msg import CameraInfo, Image, Imu, JointState, LaserScan, PointCloud2, PointField
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
+
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from g1_backend.camera_angle import mount, optical_quaternion, validate_pitch
 
 
 def stamp(seconds):
@@ -55,6 +61,7 @@ class Bridge(Node):
         self.color = self.create_publisher(Image, '/camera/color/image_raw', qos_profile_sensor_data)
         self.depth = self.create_publisher(Image, '/camera/depth/image_rect_raw', qos_profile_sensor_data)
         self.camera_info = self.create_publisher(CameraInfo, '/camera/color/camera_info', 10)
+        self.camera_captured_angle = self.create_publisher(Float64, '/camera/pitch_captured_deg', 10)
         self.joint_states = self.create_publisher(JointState, '/joint_states', 10)
         self.tf = TransformBroadcaster(self)
         self.static_tf = StaticTransformBroadcaster(self)
@@ -63,10 +70,7 @@ class Bridge(Node):
             ('base_link', 'laser', (0.0, 0.0, 0.78), (1.0, 0.0, 0.0, 0.0)),
             ('torso_link', 'torso_imu', (-0.03959, -0.00224, 0.11892),
              (1.0, 0.0, 0.0, 0.0)),
-            ('d435_link', 'd435i_color_optical_frame', (0.0, 0.0, 0.0),
-             # ROS optical axes: right, down, forward. MuJoCo cameras use
-             # right, up, backward, so their last two axes must be flipped.
-             (0.5, -0.5, 0.5, -0.5)),
+
         ):
             sensor = TransformStamped()
             sensor.header.frame_id = parent
@@ -78,12 +82,39 @@ class Bridge(Node):
              sensor.transform.rotation.y, sensor.transform.rotation.z) = quaternion
             transforms.append(sensor)
         self.static_tf.sendTransform(transforms)
+        self.camera_rpy = mount()[1]
+        self.camera_tf_stamps = set()
+        self.create_subscription(Float64, '/camera/pitch_deg', self.camera_angle, 10)
         self.create_subscription(Twist, '/cmd_vel', self.command, 10)
         self.create_timer(0.005, self.poll)
         self.last_scan = None
         self.last_received = -math.inf
         self.previous_pose = None
         self.sensor_chunks = {}
+
+    def camera_angle(self, message):
+        try:
+            degrees = validate_pitch(message.data)
+        except ValueError:
+            return
+        self.socket.sendto(json.dumps({'camera_pitch_rad': math.radians(degrees)}).encode(),
+                           ('127.0.0.1', 19421))
+
+    def camera_transform(self, pitch, timestamp):
+        key = (timestamp.sec, timestamp.nanosec)
+        if key in self.camera_tf_stamps:
+            return
+        if len(self.camera_tf_stamps) > 100:
+            self.camera_tf_stamps.clear()
+        self.camera_tf_stamps.add(key)
+        transform = TransformStamped()
+        transform.header.stamp = timestamp
+        transform.header.frame_id = 'd435_link'
+        transform.child_frame_id = 'd435i_color_optical_frame'
+        q = transform.transform.rotation
+        q.w, q.x, q.y, q.z = map(float, optical_quaternion(pitch, self.camera_rpy))
+        self.tf.sendTransform(transform)
+        self.camera_captured_angle.publish(Float64(data=math.degrees(pitch)))
 
     def estimated_odometry(self, message):
         self.last_estimated_time = message.header.stamp.sec + message.header.stamp.nanosec * 1e-9
@@ -236,6 +267,8 @@ class Bridge(Node):
 
     def publish_sensors(self, values):
         timestamp = stamp(float(values['time']))
+        if 'camera_pitch_rad' in values:
+            self.camera_transform(float(values['camera_pitch_rad']), timestamp)
         if 'mid360_points' in values:
             xyz = np.ascontiguousarray(values['mid360_points'], dtype=np.float32)
             cloud = PointCloud2()

@@ -96,7 +96,7 @@ def joint_limits(config):
     )
 
 
-def run_simulator(config, initial_q, pipe, stop, release):
+def run_simulator(config, initial_q, pipe, stop, release, camera_control=None):
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     workers = {}
     viewer = None
@@ -245,6 +245,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
         next_viewer = 0.0
         sensor_frame = None
         sensor_times = {}
+        camera_angles = {}
         sensor_timestamp = None
         camera_timestamp = None
         fixture = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_EQUALITY, 'pelvis_fixture')
@@ -320,7 +321,8 @@ def run_simulator(config, initial_q, pipe, stop, release):
                 lidar_due = 'lidar' in workers and data.time >= next_scan
                 if camera_due or lidar_due:
                     mujoco.mj_getState(model, data, sensor_state, state_spec)
-                    if camera_due and workers['camera'].submit(float(data.time), sensor_state):
+                    camera_pitch = None if camera_control is None else camera_control.value
+                    if camera_due and workers['camera'].submit(float(data.time), sensor_state, camera_pitch):
                         next_camera = data.time + 1 / camera['fps']
                     if lidar_due and workers['lidar'].submit(float(data.time), sensor_state):
                         lidar = config['navigation'].get('lidar', {})
@@ -331,6 +333,8 @@ def run_simulator(config, initial_q, pipe, stop, release):
                     if kind == 'camera':
                         rendered_frames += 1
                         camera_timestamp = frame['time']
+                        if 'camera_pitch_rad' in frame:
+                            camera_angles.update({name: frame['camera_pitch_rad'] for name in frame['sensors']})
                     else:
                         scan = frame['scan']
                         scan_time = frame['time']
@@ -388,6 +392,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
                             'sensors': sensor_frame,
                             'sensor_time': sensor_timestamp,
                             'sensor_times': sensor_times.copy(),
+                            'camera_angles': camera_angles.copy(),
                             'camera_frame_id': rendered_frames,
                             'camera_time': camera_timestamp,
                         }
@@ -398,6 +403,7 @@ def run_simulator(config, initial_q, pipe, stop, release):
                     if config.get('navigation'):
                         sensor_frame = None
                         sensor_times = {}
+                        camera_angles = {}
                     next_telemetry = data.time + 0.02
                     navigation_imu.clear()
                     feet_samples.clear()

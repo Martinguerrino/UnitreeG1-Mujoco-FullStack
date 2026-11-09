@@ -124,7 +124,15 @@ class NavigationTransport(TurnAssist):
             except BlockingIOError:
                 break
             try:
-                value = np.asarray(json.loads(payload)['velocity'], dtype=float)
+                message = json.loads(payload)
+                if 'camera_pitch_rad' in message and hasattr(self, 'camera_angle_control'):
+                    from .camera_angle import validate_pitch
+                    pitch = float(message['camera_pitch_rad'])
+                    validate_pitch(math.degrees(pitch))
+                    self.camera_angle_control.value = pitch
+                if 'velocity' not in message:
+                    continue
+                value = np.asarray(message['velocity'], dtype=float)
                 if value.shape != (3,) or not np.isfinite(value).all():
                     continue
                 self.command = np.clip(value, [-0.5, -0.15, -1.0], [0.55, 0.15, 1.0])
@@ -158,6 +166,8 @@ class NavigationTransport(TurnAssist):
                 buffer = io.BytesIO()
                 np.savez_compressed(
                     buffer, time=telemetry.get('sensor_times', {}).get(name, telemetry['sensor_time']),
+                    **({'camera_pitch_rad': telemetry['camera_angles'][name]}
+                       if name in telemetry.get('camera_angles', {}) else {}),
                     **{name: value}
                 )
                 payload = buffer.getvalue()

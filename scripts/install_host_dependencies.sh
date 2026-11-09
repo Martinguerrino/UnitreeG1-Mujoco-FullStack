@@ -9,7 +9,7 @@ if [[ $(id -u) == 0 ]]; then APT=(apt-get); PRIV=(); else APT=(sudo apt-get); PR
 "${APT[@]}" update
 "${APT[@]}" install -y \
   python3-venv python3-dev build-essential cmake git pkg-config ffmpeg \
-  libgl1 libegl1 libglfw3 libosmesa6 libpcl-dev libopencv-dev \
+  libgl1 libegl1 libglfw3 libosmesa6 libpcl-dev libopencv-dev qtbase5-dev \
   python3-opencv python3-scipy python3-pytest python3-numpy
 "${PRIV[@]}" locale-gen en_US.UTF-8
 if [[ ! -f /opt/ros/jazzy/setup.bash ]]; then
