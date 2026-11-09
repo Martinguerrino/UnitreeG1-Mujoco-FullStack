@@ -86,6 +86,13 @@ bash scripts/sim.sh moveit:=true rviz:=true
 Ejecutar una simulación por vez. Instalar todo no significa que todas las
 funciones experimentales estén validadas; consultar el estado en el README.
 
+Si MuJoCo se cierra al abrir la ventana desde VS Code Snap con un error de
+`GLib-GIO` sobre la clave `antialiasing`, revisá el entorno heredado del IDE.
+`scripts/navigation.sh` y `scripts/activate.sh` cargan `host_gui_env.sh`, que
+elimina esquemas/módulos de Snap y recupera los directorios de datos del host.
+La limpieza conserva las variables de selección de OpenGL, NVIDIA y CUDA.
+Esto evita que un fallo de GTK cierre el simulador antes de iniciar el SLAM.
+
 ## Publicación del repositorio
 
 `.gitignore` excluye `.venv`, configuración local de Python, dependencias y

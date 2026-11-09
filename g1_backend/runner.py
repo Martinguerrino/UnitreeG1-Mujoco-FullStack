@@ -149,7 +149,14 @@ def run_experiment(source):
         child.close()
         if not pipe.poll(210):
             raise TimeoutError('Simulator did not start within 210 seconds')
-        ready = pipe.recv()
+        try:
+            ready = pipe.recv()
+        except EOFError as error:
+            process.join(timeout=.1)
+            raise RuntimeError(
+                f'Simulator closed before startup (exit code {process.exitcode}); '
+                'check its graphics/driver error in the terminal'
+            ) from error
         if 'error' in ready:
             raise RuntimeError(ready['error'])
         start = time.monotonic()
@@ -391,7 +398,8 @@ def run_experiment(source):
     except PolicyUnavailable as error:
         metrics.update(status='blocked', reason=str(error), failed_skill='manipulation')
     except (Exception, KeyboardInterrupt) as error:  # noqa: BLE001 - persist failed experiment
-        metrics.update(status='failed', reason=str(error) or 'Interrupted')
+        metrics.update(status='failed', reason=str(error) or (
+            'Interrupted' if isinstance(error, KeyboardInterrupt) else type(error).__name__))
     finally:
         final_target = last_target or (target if config['kind'] == 'locomotion' else None)
         if telemetry is not None and final_target is not None:

@@ -52,7 +52,7 @@ done
 # ROS uses system Python/FastDDS; SDK2 uses Conda in a separate process.
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 unset PYTHONHOME PYTHONPATH LD_LIBRARY_PATH
-unset GTK_PATH GTK_EXE_PREFIX GTK_MODULES GDK_PIXBUF_MODULE_FILE GDK_PIXBUF_MODULEDIR
+source "$ROOT_DIR/scripts/host_gui_env.sh"
 set +u
 source /opt/ros/jazzy/setup.bash
 if [[ -f "$ROOT_DIR/install/setup.bash" ]]; then
