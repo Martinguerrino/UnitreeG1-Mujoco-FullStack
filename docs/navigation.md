@@ -1,5 +1,7 @@
 # Nav2 y SLAM en el escenario Maxwell
 
+Referencia rápida de opciones y ejemplos: [Parámetros de navigation.sh](../scripts/navigation.md).
+
 Nav2 y SLAM están instalados en el entorno local. El 2026-10-01 se validó
 una meta corta `(0.7, 0)` en modo normal y en `--ideal`, con MuJoCo, puente ROS,
 robot_state_publisher, SLAM y Nav2 sin ventanas. Esto no valida todavía una

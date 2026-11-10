@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Parámetros, valores por defecto y ejemplos: scripts/navigation.md
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT_DIR/scripts/python_env.sh"
