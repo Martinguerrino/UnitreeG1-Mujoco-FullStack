@@ -53,6 +53,10 @@ done
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 unset PYTHONHOME PYTHONPATH LD_LIBRARY_PATH
 unset GTK_PATH GTK_EXE_PREFIX GTK_MODULES GDK_PIXBUF_MODULE_FILE GDK_PIXBUF_MODULEDIR
+unset GTK_IM_MODULE_FILE GSETTINGS_SCHEMA_DIR GIO_MODULE_DIR GIO_EXTRA_MODULES
+if [[ -n "${XDG_DATA_DIRS_VSCODE_SNAP_ORIG:-}" ]]; then
+  export XDG_DATA_DIRS="$XDG_DATA_DIRS_VSCODE_SNAP_ORIG"
+fi
 set +u
 source /opt/ros/jazzy/setup.bash
 if [[ -f "$ROOT_DIR/install/setup.bash" ]]; then

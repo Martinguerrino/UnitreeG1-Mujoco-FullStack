@@ -126,7 +126,11 @@ def _run_sensor(kind, config, sources, backend, states, frames, stop, status):
                          'acceleration': acceleration})
         else:
             status.send({'ready': True})
+        parent = mp.parent_process()
         while not stop.is_set():
+            # A forced simulator shutdown must not leave sensors holding ports.
+            if parent is not None and not parent.is_alive():
+                break
             snapshot = states.get()
             if snapshot is None:
                 stop.wait(0.002)

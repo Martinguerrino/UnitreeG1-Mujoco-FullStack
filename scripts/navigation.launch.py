@@ -299,7 +299,7 @@ def prepare(context):
              '--initial-x', LaunchConfiguration('initial_x'),
              '--initial-y', LaunchConfiguration('initial_y'),
              '--initial-yaw', LaunchConfiguration('initial_yaw'),
-             '--scene', LaunchConfiguration('scene'),
+             ['--scene=', LaunchConfiguration('scene')],
              '--dexterity', LaunchConfiguration('dexterity')],
         output='screen', additional_env=gpu_env,
     )

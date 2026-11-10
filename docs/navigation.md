@@ -280,10 +280,13 @@ por sí sola eliminar todos los timeouts: la transferencia de cuadros, el visor
 y la carga general del equipo siguen consumiendo tiempo. El FPS reportado cuenta
 los cuadros recibidos; los cuadros reemplazados no se cuentan.
 
-El arranque también libera los puertos UDP 19420/19421/19422 si pertenecen a
-una ejecución anterior de `navigation_bridge.py` o `navigation_sim.py` de este
-workspace y usuario. Si pertenecen a otro proceso, cancela el arranque sin
-cerrarlo. La salida del puente o del simulador solicita un único cierre del
+Cada ejecución de `scripts/navigation.sh` libera primero el dominio DDS y luego
+los puertos UDP 19420/19421/19422/19423 si pertenecen a una ejecución anterior
+del puente, simulador o sus trabajadores de sensores de este workspace y usuario.
+Intenta un cierre con SIGTERM y, si siguen ocupados después de 3 segundos,
+fuerza el cierre con SIGKILL. Si pertenecen a otro proceso, cancela el arranque
+sin cerrarlo. Los sensores también se cierran si muere su proceso padre.
+La salida del puente o del simulador solicita un único cierre del
 stack para evitar continuar sin uno de los procesos esenciales.
 
 ### Odometría LiDAR + RGB-D con Kalman (`--real-odom`)

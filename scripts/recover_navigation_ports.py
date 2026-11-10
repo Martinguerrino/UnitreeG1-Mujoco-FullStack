@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+import re
 import signal
 import socket
 import subprocess
@@ -9,7 +10,7 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-PORTS = (19420, 19421, 19422)
+PORTS = (19420, 19421, 19422, 19423)
 SCRIPTS = {ROOT / 'scripts/navigation_bridge.py', ROOT / 'scripts/navigation_sim.py'}
 
 
@@ -32,6 +33,16 @@ def navigation_owner(pid):
         args = proc.joinpath('cmdline').read_bytes().rstrip(b'\0').split(b'\0')
         if len(args) < 2 or not Path(os.fsdecode(args[0])).name.startswith('python'):
             return False
+        # Spawned sensor workers have no script path in argv. Require the exact
+        # multiprocessing entry point and this workspace before closing them.
+        if len(args) == 4 and args[1] == b'-c' and args[3] == b'--multiprocessing-fork':
+            return (
+                re.fullmatch(
+                    rb'from multiprocessing.spawn import spawn_main; '
+                    rb'spawn_main\(tracker_fd=\d+, pipe_handle=\d+\)', args[2]
+                ) is not None
+                and proc.joinpath('cwd').resolve() == ROOT
+            )
         script = Path(os.fsdecode(args[1]))
         if not script.is_absolute():
             script = proc / 'cwd' / script
